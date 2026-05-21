@@ -569,7 +569,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 .fee-status-pill.paid    { background: rgba(25,135,84,0.12);  color: #0a5c35; }
 .fee-status-pill.partial { background: rgba(255,193,7,0.14);  color: #7a5800; }
-.fee-status-pill.unpaid  { background: rgba(220,53,69,0.12);  color: #842029; }
+.fee-status-pill.unpaid  { background: rgba(177, 120, 126, 0.12);  color: #855d61; }
 .fee-status-pill.waived  { background: rgba(13,202,240,0.12); color: #055160; }
 
 /* Student fee table */

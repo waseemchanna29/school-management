@@ -15,16 +15,18 @@ class FeeStructureController extends Controller
 {
     public function index(Request $request)
     {
-        $campusId   = CampusContext::id();
-        $query      = FeeStructure::where('campus_id', $campusId)
+        $campusId = CampusContext::id();
+
+        $query = FeeStructure::where('campus_id', $campusId)
             ->with(['schoolClass', 'items.feeLabel']);
 
         if ($request->filled('class_id'))      $query->where('class_id', $request->class_id);
+        if ($request->filled('type'))          $query->where('type', $request->type);
         if ($request->filled('academic_year')) $query->where('academic_year', $request->academic_year);
 
-        $structures   = $query->latest()->paginate(20);
-        $classes      = SchoolClass::where('campus_id', $campusId)->where('is_active', true)->orderBy('name')->get();
-        $years        = $this->academicYears();
+        $structures = $query->latest()->paginate(20);
+        $classes    = SchoolClass::where('campus_id', $campusId)->where('is_active', true)->orderBy('name')->get();
+        $years      = $this->academicYears();
 
         return view('admin.fee.structures.index', compact('structures', 'classes', 'years'));
     }
@@ -33,14 +35,17 @@ class FeeStructureController extends Controller
     {
         $campusId = CampusContext::id();
         $classes  = SchoolClass::where('campus_id', $campusId)->where('is_active', true)->orderBy('name')->get();
-        $labels   = FeeLabel::where('campus_id', $campusId)->where('is_active', true)->get();
+        $labels   = FeeLabel::where('campus_id', $campusId)->where('is_active', true)->orderBy('name')->get();
         $years    = $this->academicYears();
+
         return view('admin.fee.structures.create', compact('classes', 'labels', 'years'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
+            'name'          => ['required', 'string', 'max:255'],
+            'type'          => ['required', 'in:one_time,monthly,yearly'],
             'class_id'      => ['required', 'exists:classes,id'],
             'academic_year' => ['required', 'string'],
             'notes'         => ['nullable', 'string'],
@@ -49,20 +54,11 @@ class FeeStructureController extends Controller
             'items.*.amount'       => ['required', 'numeric', 'min:0'],
         ]);
 
-        $campusId = CampusContext::id();
-
-        $exists = FeeStructure::where('campus_id', $campusId)
-            ->where('class_id', $request->class_id)
-            ->where('academic_year', $request->academic_year)
-            ->exists();
-
-        if ($exists) {
-            return back()->withErrors(['academic_year' => 'A fee structure for this class and academic year already exists.'])->withInput();
-        }
-
-        DB::transaction(function () use ($request, $campusId) {
+        DB::transaction(function () use ($request) {
             $structure = FeeStructure::create([
-                'campus_id'     => $campusId,
+                'campus_id'     => CampusContext::id(),
+                'name'          => $request->name,
+                'type'          => $request->type,
                 'class_id'      => $request->class_id,
                 'academic_year' => $request->academic_year,
                 'is_active'     => true,
@@ -79,7 +75,8 @@ class FeeStructureController extends Controller
             }
         });
 
-        return redirect()->route('admin.fee.structures.index')->with('success', 'Fee structure created successfully.');
+        return redirect()->route('admin.fee.structures.index')
+            ->with('success', "Fee structure \"{$request->name}\" created successfully.");
     }
 
     public function show(FeeStructure $structure)
@@ -93,39 +90,51 @@ class FeeStructureController extends Controller
     {
         $this->authorize($structure);
         $structure->load('items.feeLabel');
+
         $campusId = CampusContext::id();
         $classes  = SchoolClass::where('campus_id', $campusId)->where('is_active', true)->orderBy('name')->get();
-        $labels   = FeeLabel::where('campus_id', $campusId)->where('is_active', true)->get();
+        $labels   = FeeLabel::where('campus_id', $campusId)->where('is_active', true)->orderBy('name')->get();
         $years    = $this->academicYears();
+
         return view('admin.fee.structures.edit', compact('structure', 'classes', 'labels', 'years'));
     }
 
     public function update(Request $request, FeeStructure $structure)
     {
         $this->authorize($structure);
+
         $request->validate([
-            'notes'                => ['nullable', 'string'],
-            'items'                => ['required', 'array', 'min:1'],
-            'items.*.id'           => ['nullable', 'exists:fee_structure_items,id'],
+            'name'          => ['required', 'string', 'max:255'],
+            'type'          => ['required', 'in:one_time,monthly,yearly'],
+            'class_id'      => ['required', 'exists:classes,id'],
+            'academic_year' => ['required', 'string'],
+            'notes'         => ['nullable', 'string'],
+            'items'         => ['required', 'array', 'min:1'],
+            'items.*.id'    => ['nullable', 'exists:fee_structure_items,id'],
             'items.*.fee_label_id' => ['required', 'exists:fee_labels,id'],
             'items.*.amount'       => ['required', 'numeric', 'min:0'],
-            'items.*.is_active'    => ['nullable', 'boolean'],
         ]);
 
         DB::transaction(function () use ($request, $structure) {
-            $structure->update(['notes' => $request->notes]);
+            $structure->update([
+                'name'          => $request->name,
+                'type'          => $request->type,
+                'class_id'      => $request->class_id,
+                'academic_year' => $request->academic_year,
+                'notes'         => $request->notes,
+            ]);
 
             $keptIds = [];
+
             foreach ($request->items as $item) {
                 if (!empty($item['id'])) {
-                    $sItem = FeeStructureItem::find($item['id']);
-                    if ($sItem) {
-                        $sItem->update([
+                    $existing = FeeStructureItem::find($item['id']);
+                    if ($existing) {
+                        $existing->update([
                             'fee_label_id' => $item['fee_label_id'],
                             'amount'       => $item['amount'],
-                            'is_active'    => isset($item['is_active']) ? (bool)$item['is_active'] : true,
                         ]);
-                        $keptIds[] = $sItem->id;
+                        $keptIds[] = $existing->id;
                     }
                 } else {
                     $new = FeeStructureItem::create([
@@ -138,11 +147,12 @@ class FeeStructureController extends Controller
                 }
             }
 
-            // Remove deleted items
+            // Remove items no longer in the list
             $structure->items()->whereNotIn('id', $keptIds)->delete();
         });
 
-        return redirect()->route('admin.fee.structures.show', $structure)->with('success', 'Fee structure updated.');
+        return redirect()->route('admin.fee.structures.show', $structure)
+            ->with('success', 'Fee structure updated.');
     }
 
     public function destroy(FeeStructure $structure)
@@ -150,27 +160,23 @@ class FeeStructureController extends Controller
         $this->authorize($structure);
         $structure->items()->delete();
         $structure->delete();
-        return redirect()->route('admin.fee.structures.index')->with('success', 'Fee structure deleted.');
+
+        return redirect()->route('admin.fee.structures.index')
+            ->with('success', 'Fee structure deleted.');
     }
 
     public function revise(FeeStructure $structure)
     {
         $this->authorize($structure);
-        // Create new academic year copy
+
         $parts   = explode('-', $structure->academic_year);
         $newYear = (intval($parts[0]) + 1) . '-' . (intval($parts[1]) + 1);
-
-        $exists = FeeStructure::where('campus_id', $structure->campus_id)
-            ->where('class_id', $structure->class_id)
-            ->where('academic_year', $newYear)->exists();
-
-        if ($exists) {
-            return back()->with('error', "A structure for {$newYear} already exists for this class.");
-        }
 
         DB::transaction(function () use ($structure, $newYear) {
             $new = FeeStructure::create([
                 'campus_id'     => $structure->campus_id,
+                'name'          => $structure->name,
+                'type'          => $structure->type,
                 'class_id'      => $structure->class_id,
                 'academic_year' => $newYear,
                 'is_active'     => true,
@@ -187,12 +193,13 @@ class FeeStructureController extends Controller
             }
         });
 
-        return redirect()->route('admin.fee.structures.index')->with('success', "New structure for {$newYear} created. You can now edit the amounts.");
+        return redirect()->route('admin.fee.structures.index')
+            ->with('success', "New structure for {$newYear} created from \"{$structure->name}\". Edit amounts as needed.");
     }
 
-    private function authorize(FeeStructure $structure): void
+    private function authorize(FeeStructure $s): void
     {
-        if ($structure->campus_id !== CampusContext::id()) abort(403);
+        if ($s->campus_id !== CampusContext::id()) abort(403);
     }
 
     private function academicYears(): array

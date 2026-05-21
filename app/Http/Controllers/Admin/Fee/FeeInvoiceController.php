@@ -53,25 +53,27 @@ class FeeInvoiceController extends Controller
         return view('admin.fee.invoices.create', compact('students', 'years', 'student'));
     }
 
+
     public function store(Request $request)
     {
         $request->validate([
             'student_id'    => ['required', 'exists:students,id'],
             'academic_year' => ['required', 'string'],
-            'period_type'   => ['required', 'in:monthly,yearly,one_time'],
+            'type'          => ['required', 'in:monthly,yearly,one_time'],
             'month'         => ['nullable', 'integer', 'min:1', 'max:12'],
             'year'          => ['required', 'integer'],
             'period_label'  => ['nullable', 'string'],
             'due_date'      => ['required', 'date'],
         ]);
 
-        $student = Student::where('campus_id', CampusContext::id())->findOrFail($request->student_id);
+        $student = Student::where('campus_id', CampusContext::id())
+            ->findOrFail($request->student_id);
 
         try {
             $invoice = $this->feeService->generateInvoice(
                 $student,
                 $request->academic_year,
-                $request->period_type,
+                $request->type,               // <-- was period_type, now type
                 $request->year,
                 $request->month,
                 $request->period_label,

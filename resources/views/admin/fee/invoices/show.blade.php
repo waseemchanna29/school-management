@@ -114,8 +114,8 @@
                         </tr>
                         @endif
                         <tr style="background:var(--primary); color:var(--white);">
-                            <td colspan="2" style="text-align:right; font-weight:700; padding:0.9rem 1rem; font-size:1rem;">Net Amount</td>
-                            <td style="text-align:right; font-weight:700; padding:0.9rem 1rem; font-size:1.1rem;">PKR {{ number_format($invoice->net_amount, 2) }}</td>
+                            <td colspan="2" style="text-align:right; font-weight:700; padding:0.9rem 1rem; font-size:1rem; color:var(--white);">Net Amount</td>
+                            <td style="text-align:right; font-weight:700; padding:0.9rem 1rem; font-size:1.1rem; color:var(--white);">PKR {{ number_format($invoice->net_amount, 2) }}</td>
                         </tr>
                     </tfoot>
                 </table>

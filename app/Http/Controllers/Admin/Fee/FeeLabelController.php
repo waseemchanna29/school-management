@@ -11,21 +11,23 @@ class FeeLabelController extends Controller
 {
     public function index()
     {
-        $labels = FeeLabel::where('campus_id', CampusContext::id())->latest()->get();
+        $labels = FeeLabel::where('campus_id', CampusContext::id())
+            ->withCount('structureItems')
+            ->latest()
+            ->get();
+
         return view('admin.fee.labels.index', compact('labels'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'name'      => ['required', 'string', 'max:150'],
-            'frequency' => ['required', 'in:one_time,monthly,yearly'],
+            'name' => ['required', 'string', 'max:150'],
         ]);
 
         FeeLabel::create([
             'campus_id' => CampusContext::id(),
             'name'      => $request->name,
-            'frequency' => $request->frequency,
             'is_active' => true,
         ]);
 
@@ -35,21 +37,26 @@ class FeeLabelController extends Controller
     public function update(Request $request, FeeLabel $feeLabel)
     {
         $this->authorize($feeLabel);
+
         $request->validate([
-            'name'      => ['required', 'string', 'max:150'],
-            'frequency' => ['required', 'in:one_time,monthly,yearly'],
+            'name' => ['required', 'string', 'max:150'],
         ]);
-        $feeLabel->update($request->only('name', 'frequency'));
+
+        $feeLabel->update(['name' => $request->name]);
+
         return back()->with('success', 'Label updated.');
     }
 
     public function destroy(FeeLabel $feeLabel)
     {
         $this->authorize($feeLabel);
+
         if ($feeLabel->structureItems()->count() > 0) {
             return back()->with('error', 'Cannot delete — label is used in fee structures.');
         }
+
         $feeLabel->delete();
+
         return back()->with('success', 'Label deleted.');
     }
 

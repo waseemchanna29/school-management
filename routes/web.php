@@ -64,46 +64,47 @@ Route::middleware(['auth', 'admin', 'campus_selected'])->prefix('admin')->name('
 
     Route::get('/sections',             [SectionController::class, 'index'])->name('sections.index');
     Route::post('/sections',            [SectionController::class, 'store'])->name('sections.store');
-    Route::delete('/sections/{section}',[SectionController::class, 'destroy'])->name('sections.destroy');
+    Route::delete('/sections/{section}', [SectionController::class, 'destroy'])->name('sections.destroy');
 
     Route::get('/subjects',             [SubjectController::class, 'index'])->name('subjects.index');
     Route::post('/subjects',            [SubjectController::class, 'store'])->name('subjects.store');
-    Route::delete('/subjects/{subject}',[SubjectController::class, 'destroy'])->name('subjects.destroy');
+    Route::delete('/subjects/{subject}', [SubjectController::class, 'destroy'])->name('subjects.destroy');
 
+ Route::post('/dashboard/generate-monthly-invoices',[DashboardController::class, 'generateMonthlyInvoices'])->name('dashboard.generate-monthly');    
     // ─── Fee Management ────────────────────────────────────────────────────────
-Route::prefix('fee')->name('fee.')->group(function () {
+    Route::prefix('fee')->name('fee.')->group(function () {
 
-    // Labels
-    Route::get('/labels',              [FeeLabelController::class,     'index'])->name('labels.index');
-    Route::post('/labels',             [FeeLabelController::class,     'store'])->name('labels.store');
-    Route::put('/labels/{feeLabel}',   [FeeLabelController::class,    'update'])->name('labels.update');
-    Route::delete('/labels/{feeLabel}',[FeeLabelController::class,   'destroy'])->name('labels.destroy');
-    Route::post('/labels/{feeLabel}/toggle', [FeeLabelController::class, 'toggle'])->name('labels.toggle');
+        // Labels
+        Route::get('/labels',              [FeeLabelController::class,     'index'])->name('labels.index');
+        Route::post('/labels',             [FeeLabelController::class,     'store'])->name('labels.store');
+        Route::put('/labels/{feeLabel}',   [FeeLabelController::class,    'update'])->name('labels.update');
+        Route::delete('/labels/{feeLabel}', [FeeLabelController::class,   'destroy'])->name('labels.destroy');
+        Route::post('/labels/{feeLabel}/toggle', [FeeLabelController::class, 'toggle'])->name('labels.toggle');
 
-    // Structures
-    Route::resource('structures', FeeStructureController::class)->except('show');
-    Route::get('/structures/{structure}',       [FeeStructureController::class, 'show'])->name('structures.show');
-    Route::post('/structures/{structure}/revise',[FeeStructureController::class,'revise'])->name('structures.revise');
+        // Structures
+        Route::resource('structures', FeeStructureController::class)->except('show');
+        Route::get('/structures/{structure}',       [FeeStructureController::class, 'show'])->name('structures.show');
+        Route::post('/structures/{structure}/revise', [FeeStructureController::class, 'revise'])->name('structures.revise');
 
-    // Student fees
-    Route::get('/students/{student}',            [StudentFeeController::class, 'show'])->name('student.show');
-    Route::post('/students/{student}/assign',    [StudentFeeController::class, 'assign'])->name('student.assign');
-    Route::post('/students/{student}/add-fee',   [StudentFeeController::class, 'addFee'])->name('student.add-fee');
-    Route::put('/student-fees/{studentFee}',     [StudentFeeController::class, 'updateFee'])->name('student.update-fee');
-    Route::delete('/student-fees/{studentFee}',  [StudentFeeController::class, 'destroyFee'])->name('student.destroy-fee');
+        // Student fees
+        Route::get('/students/{student}',            [StudentFeeController::class, 'show'])->name('student.show');
+        Route::post('/students/{student}/assign',    [StudentFeeController::class, 'assign'])->name('student.assign');
+        Route::post('/students/{student}/add-fee',   [StudentFeeController::class, 'addFee'])->name('student.add-fee');
+        Route::put('/student-fees/{studentFee}',     [StudentFeeController::class, 'updateFee'])->name('student.update-fee');
+        Route::delete('/student-fees/{studentFee}',  [StudentFeeController::class, 'destroyFee'])->name('student.destroy-fee');
 
-    // Invoices
-    Route::get('/invoices',                      [FeeInvoiceController::class, 'index'])->name('invoices.index');
-    Route::get('/invoices/create',               [FeeInvoiceController::class, 'create'])->name('invoices.create');
-    Route::post('/invoices',                     [FeeInvoiceController::class, 'store'])->name('invoices.store');
-    Route::get('/invoices/{invoice}',            [FeeInvoiceController::class, 'show'])->name('invoices.show');
-    Route::put('/invoices/{invoice}/adjustments',[FeeInvoiceController::class, 'updateAdjustments'])->name('invoices.adjustments');
-    Route::post('/invoices/{invoice}/waive',     [FeeInvoiceController::class, 'waive'])->name('invoices.waive');
-    Route::delete('/invoices/{invoice}',         [FeeInvoiceController::class, 'destroy'])->name('invoices.destroy');
+        // Invoices
+        Route::get('/invoices',                      [FeeInvoiceController::class, 'index'])->name('invoices.index');
+        Route::get('/invoices/create',               [FeeInvoiceController::class, 'create'])->name('invoices.create');
+        Route::post('/invoices',                     [FeeInvoiceController::class, 'store'])->name('invoices.store');
+        Route::get('/invoices/{invoice}',            [FeeInvoiceController::class, 'show'])->name('invoices.show');
+        Route::put('/invoices/{invoice}/adjustments', [FeeInvoiceController::class, 'updateAdjustments'])->name('invoices.adjustments');
+        Route::post('/invoices/{invoice}/waive',     [FeeInvoiceController::class, 'waive'])->name('invoices.waive');
+        Route::delete('/invoices/{invoice}',         [FeeInvoiceController::class, 'destroy'])->name('invoices.destroy');
 
-    // Payments
-    Route::post('/invoices/{invoice}/payments',  [FeePaymentController::class, 'store'])->name('payments.store');
-    Route::delete('/payments/{payment}',         [FeePaymentController::class, 'destroy'])->name('payments.destroy');
+        // Payments
+        Route::post('/invoices/{invoice}/payments',  [FeePaymentController::class, 'store'])->name('payments.store');
+        Route::delete('/payments/{payment}',         [FeePaymentController::class, 'destroy'])->name('payments.destroy');
+       
+    });
 });
-});
-
