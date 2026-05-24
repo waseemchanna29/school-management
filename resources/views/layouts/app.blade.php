@@ -80,6 +80,14 @@
                         class="sidebar-nav-link {{ request()->routeIs('admin.subjects.*') ? 'active' : '' }}">
                         <i class="fas fa-book"></i> Subjects
                     </a>
+                    <a href="{{ route('admin.timetable.periods.index') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.timetable.periods.*') ? 'active' : '' }}">
+                        <i class="fas fa-clock"></i> Time Periods
+                    </a>
+                    <a href="{{ route('admin.timetable.index') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.timetable.*') && !request()->routeIs('admin.timetable.periods.*') ? 'active' : '' }}">
+                        <i class="fas fa-calendar-alt"></i> Timetables
+                    </a>
                     {{-- Add this inside the admin (non-super-admin) nav section, after Academics --}}
                     <span class="sidebar-nav-label">Finance</span>
                     <a href="{{ route('admin.fee.labels.index') }}"

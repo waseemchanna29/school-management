@@ -17,6 +17,8 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\SuperAdmin\AdminUserController;
 use App\Http\Controllers\SuperAdmin\CampusController;
 use App\Http\Controllers\SuperAdmin\DashboardController as SuperDashboard;
+use App\Http\Controllers\Admin\Timetable\PeriodTemplateController;
+use App\Http\Controllers\Admin\Timetable\TimetableController;
 use Illuminate\Support\Facades\Route;
 
 // Root redirect
@@ -70,7 +72,7 @@ Route::middleware(['auth', 'admin', 'campus_selected'])->prefix('admin')->name('
     Route::post('/subjects',            [SubjectController::class, 'store'])->name('subjects.store');
     Route::delete('/subjects/{subject}', [SubjectController::class, 'destroy'])->name('subjects.destroy');
 
- Route::post('/dashboard/generate-monthly-invoices',[DashboardController::class, 'generateMonthlyInvoices'])->name('dashboard.generate-monthly');    
+    Route::post('/dashboard/generate-monthly-invoices', [DashboardController::class, 'generateMonthlyInvoices'])->name('dashboard.generate-monthly');
     // ─── Fee Management ────────────────────────────────────────────────────────
     Route::prefix('fee')->name('fee.')->group(function () {
 
@@ -105,6 +107,28 @@ Route::middleware(['auth', 'admin', 'campus_selected'])->prefix('admin')->name('
         // Payments
         Route::post('/invoices/{invoice}/payments',  [FeePaymentController::class, 'store'])->name('payments.store');
         Route::delete('/payments/{payment}',         [FeePaymentController::class, 'destroy'])->name('payments.destroy');
-       
+    });
+
+    Route::prefix('timetable')->name('timetable.')->group(function () {
+
+        // Period Templates (campus-level)
+        Route::get('/periods',                      [PeriodTemplateController::class, 'index'])->name('periods.index');
+        Route::post('/periods',                     [PeriodTemplateController::class, 'store'])->name('periods.store');
+        Route::put('/periods/{periodTemplate}',     [PeriodTemplateController::class, 'update'])->name('periods.update');
+        Route::delete('/periods/{periodTemplate}',  [PeriodTemplateController::class, 'destroy'])->name('periods.destroy');
+        Route::post('/periods/reorder',             [PeriodTemplateController::class, 'reorder'])->name('periods.reorder');
+
+        // Timetables
+        Route::get('/',                             [TimetableController::class, 'index'])->name('index');
+        Route::get('/create',                       [TimetableController::class, 'create'])->name('create');
+        Route::post('/',                            [TimetableController::class, 'store'])->name('store');
+        Route::get('/{timetable}',                  [TimetableController::class, 'show'])->name('show');
+        Route::get('/{timetable}/edit',             [TimetableController::class, 'edit'])->name('edit');
+        Route::post('/{timetable}/grid',            [TimetableController::class, 'saveGrid'])->name('save-grid');
+        Route::delete('/{timetable}',               [TimetableController::class, 'destroy'])->name('destroy');
+        Route::post('/{timetable}/toggle',          [TimetableController::class, 'toggleActive'])->name('toggle');
+
+        // Teacher schedule view
+        Route::get('/teacher/{teacher}',            [TimetableController::class, 'teacherView'])->name('teacher-view');
     });
 });

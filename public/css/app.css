@@ -591,3 +591,265 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     .portal-main { margin-left: 0 !important; }
     .portal-content { padding: 0 !important; }
 }
+
+
+/* ===== TIMETABLE MODULE ===== */
+
+.timetable-grid-wrapper {
+    overflow-x: auto;
+}
+
+.timetable-grid {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 700px;
+    font-size: 0.85rem;
+}
+
+/* Header row — days */
+.timetable-grid thead th {
+    background: var(--primary);
+    color: var(--white);
+    font-weight: 700;
+    font-size: 0.82rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 0.75rem 0.6rem;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.15);
+    white-space: nowrap;
+}
+
+.timetable-grid thead th.period-col {
+    background: var(--primary-dark);
+    min-width: 130px;
+    text-align: left;
+    padding-left: 1rem;
+}
+
+/* Period label column */
+.timetable-grid td.period-info {
+    background: var(--light-bg);
+    border: 1px solid var(--border);
+    padding: 0.6rem 0.9rem;
+    vertical-align: top;
+    min-width: 130px;
+}
+
+.period-info-label {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 0.85rem;
+    display: block;
+}
+
+.period-info-time {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 2px;
+}
+
+.period-info-duration {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    display: block;
+}
+
+/* Timetable cells */
+.timetable-grid td.tt-cell {
+    border: 1px solid var(--border);
+    padding: 0;
+    vertical-align: top;
+    min-width: 130px;
+    width: 130px;
+}
+
+/* Break row */
+.timetable-grid tr.break-row td {
+    background: rgba(232,160,32,0.08);
+}
+
+.timetable-grid tr.break-row td.period-info {
+    background: rgba(232,160,32,0.14);
+}
+
+/* Cell content — view mode */
+.tt-cell-content {
+    padding: 0.55rem 0.7rem;
+    height: 100%;
+    min-height: 70px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+}
+
+.tt-cell-content.lesson {
+    background: rgba(37,99,168,0.05);
+    border-left: 3px solid var(--primary-light);
+}
+
+.tt-cell-content.break {
+    background: rgba(232,160,32,0.09);
+    border-left: 3px solid var(--accent);
+    align-items: center;
+    justify-content: center;
+}
+
+.tt-cell-content.free {
+    background: transparent;
+    color: var(--text-muted);
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+}
+
+.tt-subject {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 0.85rem;
+    line-height: 1.2;
+}
+
+.tt-teacher {
+    font-size: 0.77rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tt-break-label {
+    font-weight: 600;
+    color: #7a540e;
+    font-size: 0.85rem;
+}
+
+/* Edit mode cell — select boxes */
+.tt-cell-edit {
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 90px;
+}
+
+.tt-type-select {
+    font-size: 0.78rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.4rem;
+    font-family: var(--font-main);
+    color: var(--text-dark);
+    background: var(--white);
+    width: 100%;
+    cursor: pointer;
+}
+
+.tt-type-select:focus { outline: none; border-color: var(--primary-light); }
+
+.tt-sub-select, .tt-teacher-select {
+    font-size: 0.76rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.22rem 0.4rem;
+    font-family: var(--font-main);
+    color: var(--text-dark);
+    background: var(--white);
+    width: 100%;
+    cursor: pointer;
+}
+
+.tt-sub-select:focus, .tt-teacher-select:focus {
+    outline: none;
+    border-color: var(--primary-light);
+}
+
+.tt-custom-label-input {
+    font-size: 0.76rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.22rem 0.4rem;
+    font-family: var(--font-main);
+    width: 100%;
+}
+
+/* Color coding by type */
+.tt-cell-edit[data-type="lesson"]  { background: rgba(37,99,168,0.04); }
+.tt-cell-edit[data-type="break"]   { background: rgba(232,160,32,0.08); }
+.tt-cell-edit[data-type="free"]    { background: var(--white); }
+
+/* Period template page */
+.period-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.7rem 1rem;
+    box-shadow: var(--shadow);
+    cursor: grab;
+    transition: box-shadow var(--transition), transform var(--transition);
+    width: 100%;
+}
+
+.period-chip:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.period-chip.is-break {
+    border-left: 4px solid var(--accent);
+}
+
+.period-chip.is-lesson {
+    border-left: 4px solid var(--primary-light);
+}
+
+.period-chip-label {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 0.9rem;
+    flex: 1;
+}
+
+.period-chip-time {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.period-chip-duration {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* Teacher view — conflict highlight */
+.tt-cell-content.conflict {
+    background: rgba(220,53,69,0.08);
+    border-left: 3px solid var(--danger);
+}
+
+/* Print styles */
+@media print {
+    .portal-sidebar,
+    .portal-topbar,
+    .page-header .d-flex,
+    .btn,
+    .filter-bar,
+    .no-print { display: none !important; }
+
+    .portal-main  { margin-left: 0 !important; }
+    .portal-content { padding: 0 !important; }
+
+    .timetable-grid thead th { background: #1a3c5e !important; color: white !important; -webkit-print-color-adjust: exact; }
+    .timetable-grid tr.break-row td { background: #fdf3dc !important; -webkit-print-color-adjust: exact; }
+    .tt-cell-content.lesson { background: #eef3fb !important; border-left: 3px solid #2563a8 !important; -webkit-print-color-adjust: exact; }
+    .tt-cell-content.break  { background: #fdf3dc !important; -webkit-print-color-adjust: exact; }
+
+    .card { box-shadow: none !important; border: 1px solid #dce3ed !important; }
+    .timetable-grid td, .timetable-grid th { border: 1px solid #dce3ed !important; }
+}
