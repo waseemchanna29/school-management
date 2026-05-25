@@ -14,9 +14,9 @@ return new class extends Migration
         Schema::create('fee_invoice_items', function (Blueprint $table) {
             $table->id();
              $table->foreignId('fee_invoice_id')->constrained()->onDelete('cascade');
-            $table->foreignId('fee_label_id')->constrained()->onDelete('cascade');
-            $table->string('label_name');             // snapshot at time of invoice
+            $table->string('label');          // snapshot at time of invoice
             $table->decimal('amount', 10, 2);
+            $table->unsignedSmallInteger('sort_order')->default(0);
             $table->timestamps();
         });
     }

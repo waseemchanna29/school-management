@@ -6,8 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class FeeInvoiceItem extends Model
 {
-    protected $fillable = ['fee_invoice_id', 'fee_label_id', 'label_name', 'amount'];
+    protected $fillable = ['fee_invoice_id', 'label', 'amount', 'sort_order'];
 
-    public function invoice()  { return $this->belongsTo(FeeInvoice::class, 'fee_invoice_id'); }
-    public function feeLabel() { return $this->belongsTo(FeeLabel::class); }
+    public function invoice() { return $this->belongsTo(FeeInvoice::class, 'fee_invoice_id'); }
 }

@@ -8,22 +8,16 @@
         <div class="page-header-title">Timetables</div>
         <div class="page-header-sub">Class and section weekly schedules</div>
     </div>
-    <div class="d-flex gap-2">
-        <a href="{{ route('admin.timetable.periods.index') }}" class="btn-outline-primary btn btn-sm">
-            <i class="fas fa-clock"></i> Manage Periods
-        </a>
-        <a href="{{ route('admin.timetable.create') }}" class="btn btn-primary">
-            <i class="fas fa-plus-circle"></i> New Timetable
-        </a>
-    </div>
+    <a href="{{ route('admin.timetable.create') }}" class="btn btn-primary">
+        <i class="fas fa-plus-circle"></i> New Timetable
+    </a>
 </div>
 
-<!-- Filters -->
 <form method="GET">
     <div class="filter-bar">
         <div>
             <label class="form-label">Class</label>
-            <select name="class_id" class="form-select">
+            <select name="class_id" class="form-select" onchange="this.form.submit()">
                 <option value="">All Classes</option>
                 @foreach($classes as $class)
                     <option value="{{ $class->id }}"
@@ -34,7 +28,19 @@
             </select>
         </div>
         <div>
-            <label class="form-label">Academic Year</label>
+            <label class="form-label">Section</label>
+            <select name="section_id" class="form-select">
+                <option value="">All Sections</option>
+                @foreach($sections as $section)
+                    <option value="{{ $section->id }}"
+                            {{ request('section_id') == $section->id ? 'selected' : '' }}>
+                        {{ $section->schoolClass->name ?? '' }} – {{ $section->name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Year</label>
             <select name="academic_year" class="form-select">
                 <option value="">All Years</option>
                 @foreach($years as $year)
@@ -47,10 +53,10 @@
         </div>
         <div>
             <label class="form-label">Status</label>
-            <select name="is_active" class="form-select">
+            <select name="status" class="form-select">
                 <option value="">All</option>
-                <option value="1" {{ request('is_active') === '1' ? 'selected' : '' }}>Active</option>
-                <option value="0" {{ request('is_active') === '0' ? 'selected' : '' }}>Inactive</option>
+                <option value="active"   {{ request('status') === 'active'   ? 'selected' : '' }}>Active</option>
+                <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
             </select>
         </div>
         <div style="align-self:flex-end;">
@@ -65,11 +71,12 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Timetable Name</th>
+                    <th>Name</th>
                     <th>Class</th>
                     <th>Section</th>
-                    <th>Academic Year</th>
+                    <th>Year</th>
                     <th>Days</th>
+                    <th>Periods</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -79,14 +86,22 @@
                 <tr>
                     <td><strong>{{ $tt->name }}</strong></td>
                     <td>{{ $tt->schoolClass->name ?? '—' }}</td>
-                    <td>{{ $tt->section->name ?? '—' }}</td>
-                    <td><span class="badge badge-info">{{ $tt->academic_year }}</span></td>
+                    <td>
+                        <span class="badge badge-info">{{ $tt->section->name ?? '—' }}</span>
+                    </td>
+                    <td>{{ $tt->academic_year }}</td>
                     <td>
                         <div style="display:flex; gap:3px; flex-wrap:wrap;">
-                            @foreach($tt->days as $day)
-                                <span class="badge badge-primary" style="font-size:0.72rem;">{{ $day }}</span>
+                            @foreach($tt->days as $d)
+                                <span class="badge badge-primary"
+                                      style="font-size:0.7rem;">{{ $d }}</span>
                             @endforeach
                         </div>
+                    </td>
+                    <td>
+                        <span class="badge badge-info">
+                            {{ $tt->periods_count ?? '—' }}
+                        </span>
                     </td>
                     <td>
                         <span class="badge {{ $tt->is_active ? 'badge-approved' : 'badge-rejected' }}">
@@ -100,8 +115,8 @@
                                 <i class="fas fa-eye"></i>
                             </a>
                             <a href="{{ route('admin.timetable.edit', $tt) }}"
-                               class="btn-outline-primary btn btn-sm" title="Edit Grid">
-                                <i class="fas fa-th"></i>
+                               class="btn-outline-primary btn btn-sm" title="Edit">
+                                <i class="fas fa-edit"></i>
                             </a>
                             <form action="{{ route('admin.timetable.toggle', $tt) }}"
                                   method="POST" style="display:inline;">
@@ -115,7 +130,7 @@
                                   method="POST" style="display:inline;">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="btn-outline-danger btn btn-sm"
-                                        onclick="return confirm('Delete timetable \'{{ addslashes($tt->name) }}\'?')">
+                                        onclick="return confirm('Delete this timetable?')">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </form>
@@ -124,7 +139,8 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" style="text-align:center; color:var(--text-muted); padding:3rem;">
+                    <td colspan="8"
+                        style="text-align:center; color:var(--text-muted); padding:3rem;">
                         <i class="fas fa-calendar-alt"
                            style="font-size:3rem; display:block; margin-bottom:1rem; color:var(--border);"></i>
                         No timetables yet.
@@ -142,3 +158,10 @@
     @endif
 </div>
 @endsection
+
+@php
+    // Eager load period count for listing
+    if (method_exists($timetables->getCollection()->first() ?? new stdClass, 'loadCount')) {
+        $timetables->getCollection()->loadCount('periods');
+    }
+@endphp

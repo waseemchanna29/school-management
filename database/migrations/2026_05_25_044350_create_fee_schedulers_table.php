@@ -11,13 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('fee_labels', function (Blueprint $table) {
+        Schema::create('fee_schedulers', function (Blueprint $table) {
             $table->id();
              $table->foreignId('campus_id')->constrained()->onDelete('cascade');
-            $table->string('name');                  // e.g. Tuition Fee, Exam Fee
-            $table->enum('frequency', ['one_time', 'monthly', 'yearly']);
+            $table->string('name');              // e.g. "Class 9 Monthly Fee"
+            $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
-           
             $table->timestamps();
         });
     }
@@ -27,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('fee_labels');
+        Schema::dropIfExists('fee_schedulers');
     }
 };

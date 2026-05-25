@@ -11,16 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('fee_structures', function (Blueprint $table) {
+        Schema::create('student_schedulers', function (Blueprint $table) {
             $table->id();
+             $table->foreignId('student_id')->unique()->constrained()->onDelete('cascade');
             $table->foreignId('campus_id')->constrained()->onDelete('cascade');
-            $table->foreignId('class_id')->constrained('classes')->onDelete('cascade');
-            $table->string('academic_year');          // e.g. "2024-2025"
-            $table->boolean('is_active')->default(true);
-            $table->text('notes')->nullable();
+            $table->foreignId('fee_scheduler_id')->constrained()->onDelete('cascade');
+            $table->date('assigned_date');
             $table->timestamps();
-
-            $table->unique(['campus_id', 'class_id', 'academic_year']);
         });
     }
 
@@ -29,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('fee_structures');
+        Schema::dropIfExists('student_schedulers');
     }
 };

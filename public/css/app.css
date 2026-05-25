@@ -593,127 +593,121 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 
 
-/* ===== TIMETABLE MODULE ===== */
+/* ===========================
+   TIMETABLE MODULE
+   =========================== */
 
-.timetable-grid-wrapper {
-    overflow-x: auto;
-}
+/* ── Grid wrapper ── */
+.timetable-grid-wrapper { overflow-x: auto; }
 
 .timetable-grid {
     width: 100%;
     border-collapse: collapse;
-    min-width: 700px;
+    min-width: 620px;
     font-size: 0.85rem;
 }
 
-/* Header row — days */
+/* ── Header row ── */
 .timetable-grid thead th {
     background: var(--primary);
     color: var(--white);
     font-weight: 700;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     letter-spacing: 0.5px;
     text-transform: uppercase;
-    padding: 0.75rem 0.6rem;
+    padding: 0.75rem 0.8rem;
     text-align: center;
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.12);
     white-space: nowrap;
 }
 
-.timetable-grid thead th.period-col {
+.timetable-grid thead th.col-period {
     background: var(--primary-dark);
-    min-width: 130px;
     text-align: left;
     padding-left: 1rem;
+    min-width: 140px;
 }
 
-/* Period label column */
-.timetable-grid td.period-info {
+/* ── Period label column ── */
+.timetable-grid td.col-period {
     background: var(--light-bg);
     border: 1px solid var(--border);
-    padding: 0.6rem 0.9rem;
-    vertical-align: top;
-    min-width: 130px;
+    padding: 0.65rem 1rem;
+    vertical-align: middle;
+    min-width: 140px;
 }
 
-.period-info-label {
+.tt-period-label {
     font-weight: 700;
     color: var(--primary);
-    font-size: 0.85rem;
+    font-size: 0.88rem;
     display: block;
 }
 
-.period-info-time {
-    font-size: 0.76rem;
+.tt-period-time {
+    font-size: 0.75rem;
     color: var(--text-muted);
     display: block;
-    margin-top: 2px;
+    margin-top: 1px;
 }
 
-.period-info-duration {
-    font-size: 0.72rem;
-    color: var(--text-muted);
+.tt-period-dur {
+    font-size: 0.7rem;
+    color: var(--border);
     display: block;
 }
 
-/* Timetable cells */
+/* ── Break row highlight ── */
+.timetable-grid tr.is-break-row td { background: rgba(232,160,32,0.07); }
+.timetable-grid tr.is-break-row td.col-period { background: rgba(232,160,32,0.14); }
+
+/* ── Data cells ── */
 .timetable-grid td.tt-cell {
     border: 1px solid var(--border);
     padding: 0;
     vertical-align: top;
-    min-width: 130px;
-    width: 130px;
+    min-width: 140px;
+    width: 140px;
 }
 
-/* Break row */
-.timetable-grid tr.break-row td {
-    background: rgba(232,160,32,0.08);
-}
-
-.timetable-grid tr.break-row td.period-info {
-    background: rgba(232,160,32,0.14);
-}
-
-/* Cell content — view mode */
-.tt-cell-content {
-    padding: 0.55rem 0.7rem;
-    height: 100%;
-    min-height: 70px;
+/* ── Cell content (view mode) ── */
+.tt-view-cell {
+    padding: 0.6rem 0.8rem;
+    min-height: 72px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 3px;
+    gap: 4px;
 }
 
-.tt-cell-content.lesson {
-    background: rgba(37,99,168,0.05);
+.tt-view-cell.lesson {
     border-left: 3px solid var(--primary-light);
+    background: rgba(37,99,168,0.05);
 }
 
-.tt-cell-content.break {
-    background: rgba(232,160,32,0.09);
+.tt-view-cell.break {
     border-left: 3px solid var(--accent);
+    background: rgba(232,160,32,0.08);
     align-items: center;
     justify-content: center;
 }
 
-.tt-cell-content.free {
-    background: transparent;
-    color: var(--text-muted);
+.tt-view-cell.free {
+    color: var(--border);
     align-items: center;
     justify-content: center;
-    font-size: 0.78rem;
+    font-size: 0.8rem;
 }
 
-.tt-subject {
+.tt-subject-name {
     font-weight: 700;
     color: var(--primary);
-    font-size: 0.85rem;
+    font-size: 0.88rem;
     line-height: 1.2;
 }
 
-.tt-teacher {
-    font-size: 0.77rem;
+.tt-teacher-name {
+    font-size: 0.76rem;
     color: var(--text-muted);
     display: flex;
     align-items: center;
@@ -723,33 +717,24 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .tt-break-label {
     font-weight: 600;
     color: #7a540e;
-    font-size: 0.85rem;
+    font-size: 0.88rem;
 }
 
-/* Edit mode cell — select boxes */
-.tt-cell-edit {
-    padding: 0.4rem;
+/* ── Edit mode cell ── */
+.tt-edit-cell {
+    padding: 0.35rem;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    min-height: 90px;
+    min-height: 96px;
 }
 
-.tt-type-select {
-    font-size: 0.78rem;
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 0.25rem 0.4rem;
-    font-family: var(--font-main);
-    color: var(--text-dark);
-    background: var(--white);
+.tt-edit-cell[data-type="lesson"]  { background: rgba(37,99,168,0.04); }
+.tt-edit-cell[data-type="break"]   { background: rgba(232,160,32,0.07); }
+.tt-edit-cell[data-type="free"]    { background: var(--white); }
+
+.tt-select {
     width: 100%;
-    cursor: pointer;
-}
-
-.tt-type-select:focus { outline: none; border-color: var(--primary-light); }
-
-.tt-sub-select, .tt-teacher-select {
     font-size: 0.76rem;
     border: 1.5px solid var(--border);
     border-radius: var(--radius-sm);
@@ -757,99 +742,323 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     font-family: var(--font-main);
     color: var(--text-dark);
     background: var(--white);
-    width: 100%;
     cursor: pointer;
+    transition: border-color var(--transition);
 }
 
-.tt-sub-select:focus, .tt-teacher-select:focus {
-    outline: none;
-    border-color: var(--primary-light);
-}
+.tt-select:focus { outline: none; border-color: var(--primary-light); }
 
-.tt-custom-label-input {
+.tt-text-input {
+    width: 100%;
     font-size: 0.76rem;
     border: 1.5px solid var(--border);
     border-radius: var(--radius-sm);
     padding: 0.22rem 0.4rem;
     font-family: var(--font-main);
-    width: 100%;
+    color: var(--text-dark);
+    background: var(--white);
 }
 
-/* Color coding by type */
-.tt-cell-edit[data-type="lesson"]  { background: rgba(37,99,168,0.04); }
-.tt-cell-edit[data-type="break"]   { background: rgba(232,160,32,0.08); }
-.tt-cell-edit[data-type="free"]    { background: var(--white); }
+/* ── Day tabs ── */
+.day-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 0;
+    overflow-x: auto;
+}
 
-/* Period template page */
-.period-chip {
-    display: inline-flex;
+.day-tab {
+    padding: 0.65rem 1.3rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    transition: all var(--transition);
+    font-family: var(--font-main);
+    text-decoration: none;
+    display: inline-block;
+}
+
+.day-tab:hover { color: var(--primary); }
+
+.day-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    background: rgba(37,99,168,0.04);
+}
+
+.day-tab.has-data { color: var(--primary-light); }
+.day-tab.has-data.active { border-bottom-color: var(--primary); }
+
+/* ── Period manager card ── */
+.period-row {
+    display: flex;
     align-items: center;
-    gap: 8px;
-    background: var(--white);
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius);
+    gap: 0.7rem;
     padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--white);
+    transition: background var(--transition);
+}
+
+.period-row:last-child { border-bottom: none; }
+.period-row:hover      { background: var(--light-bg); }
+.period-row.is-break   { border-left: 3px solid var(--accent); }
+.period-row.is-lesson  { border-left: 3px solid var(--primary-light); }
+
+.period-row-label { font-weight: 700; color: var(--primary); font-size: 0.9rem; flex: 1; }
+.period-row-time  { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
+.period-row-dur   { font-size: 0.75rem; color: var(--border); white-space: nowrap; }
+
+/* ── Conflict banner ── */
+.conflict-banner {
+    background: rgba(255,193,7,0.12);
+    border: 1.5px solid rgba(255,193,7,0.4);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 1rem;
+    font-size: 0.87rem;
+    color: #7a5800;
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 0.7rem;
+    align-items: flex-start;
+}
+
+/* ── Print ── */
+@media print {
+    .portal-sidebar, .portal-topbar,
+    .no-print, .btn, form:not(#print-safe),
+    .day-tabs, .filter-bar, .page-header .d-flex { display: none !important; }
+
+    .portal-main    { margin-left: 0 !important; }
+    .portal-content { padding: 0.5rem !important; }
+    .card           { box-shadow: none !important; border: 1px solid #ccc !important; }
+
+    .timetable-grid thead th {
+        background: #1a3c5e !important;
+        color: #fff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .timetable-grid tr.is-break-row td {
+        background: #fdf3dc !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .tt-view-cell.lesson {
+        background: #eef3fb !important;
+        border-left: 3px solid #2563a8 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .tt-view-cell.break {
+        background: #fdf3dc !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+
+/* ===== FEE MODULE — REVISED ===== */
+
+.fee-summary-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.fee-summary-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.3rem;
     box-shadow: var(--shadow);
-    cursor: grab;
-    transition: box-shadow var(--transition), transform var(--transition);
-    width: 100%;
+    border-top: 3px solid var(--primary);
 }
 
-.period-chip:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
-}
+.fee-summary-card.paid    { border-top-color: var(--success); }
+.fee-summary-card.balance { border-top-color: var(--danger); }
+.fee-summary-card.warn    { border-top-color: var(--warning); }
 
-.period-chip.is-break {
-    border-left: 4px solid var(--accent);
-}
-
-.period-chip.is-lesson {
-    border-left: 4px solid var(--primary-light);
-}
-
-.period-chip-label {
+.fee-summary-amount {
+    font-size: 1.4rem;
     font-weight: 700;
     color: var(--primary);
-    font-size: 0.9rem;
+    display: block;
+    line-height: 1.1;
+}
+
+.fee-summary-label {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+    display: block;
+    margin-top: 4px;
+}
+
+/* Fee item row */
+.fee-item-line {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.65rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.fee-item-line:last-child { border-bottom: none; }
+.fee-item-line-label { flex: 1; font-weight: 600; font-size: 0.9rem; }
+.fee-item-line-note  { font-size: 0.76rem; color: var(--text-muted); font-style: italic; }
+.fee-item-line-amount { font-weight: 700; color: var(--primary); min-width: 100px; text-align: right; font-size: 0.95rem; }
+
+/* ===== POS SLIP ===== */
+.pos-wrapper {
+    display: flex;
+    gap: 0;
+    max-width: 760px;
+    margin: 0 auto;
+    font-family: 'Courier New', monospace;
+    font-size: 0.82rem;
+}
+
+.pos-copy {
     flex: 1;
+    padding: 1.2rem;
+    border: 1px dashed #aaa;
+    position: relative;
 }
 
-.period-chip-time {
+.pos-copy + .pos-copy {
+    border-left: none;
+}
+
+.pos-divider {
+    width: 1px;
+    background: repeating-linear-gradient(
+        to bottom,
+        #aaa,
+        #aaa 6px,
+        transparent 6px,
+        transparent 12px
+    );
+    flex-shrink: 0;
+}
+
+.pos-copy-label {
+    text-align: center;
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #888;
+    border-bottom: 1px dashed #ccc;
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.8rem;
+}
+
+.pos-logo {
+    display: block;
+    max-height: 48px;
+    max-width: 120px;
+    margin: 0 auto 0.4rem;
+}
+
+.pos-school-name {
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #1a3c5e;
+}
+
+.pos-school-sub {
+    text-align: center;
+    font-size: 0.72rem;
+    color: #666;
+    margin-bottom: 0.7rem;
+}
+
+.pos-hr {
+    border: none;
+    border-top: 1px dashed #aaa;
+    margin: 0.6rem 0;
+}
+
+.pos-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
     font-size: 0.8rem;
-    color: var(--text-muted);
-    white-space: nowrap;
 }
 
-.period-chip-duration {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    white-space: nowrap;
+.pos-row-label { color: #555; flex: 1; }
+.pos-row-value { font-weight: 600; color: #222; text-align: right; }
+
+.pos-items { margin: 0.5rem 0; }
+
+.pos-item-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    padding: 0.18rem 0;
+    border-bottom: 1px dotted #e0e0e0;
 }
 
-/* Teacher view — conflict highlight */
-.tt-cell-content.conflict {
-    background: rgba(220,53,69,0.08);
-    border-left: 3px solid var(--danger);
+.pos-item-row:last-child { border-bottom: none; }
+
+.pos-total-row {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 0.88rem;
+    border-top: 1px dashed #aaa;
+    padding-top: 0.4rem;
+    margin-top: 0.4rem;
 }
 
-/* Print styles */
+.pos-status-stamp {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 900;
+    letter-spacing: 3px;
+    border: 3px solid currentColor;
+    display: inline-block;
+    padding: 0.2rem 0.8rem;
+    border-radius: 4px;
+    margin: 0.6rem auto;
+}
+
+.pos-status-stamp.paid    { color: #198754; }
+.pos-status-stamp.unpaid  { color: #dc3545; }
+.pos-status-stamp.partial { color: #ffc107; }
+.pos-status-stamp.waived  { color: #0dcaf0; }
+
+.pos-footer {
+    text-align: center;
+    font-size: 0.7rem;
+    color: #999;
+    margin-top: 0.8rem;
+}
+
 @media print {
-    .portal-sidebar,
-    .portal-topbar,
-    .page-header .d-flex,
-    .btn,
-    .filter-bar,
-    .no-print { display: none !important; }
+    .portal-sidebar, .portal-topbar,
+    .no-print, .btn, .page-header .d-flex,
+    .filter-bar { display: none !important; }
 
-    .portal-main  { margin-left: 0 !important; }
-    .portal-content { padding: 0 !important; }
+    .portal-main    { margin-left: 0 !important; }
+    .portal-content { padding: 0.3rem !important; }
+    .card           { box-shadow: none !important; border: none !important; }
 
-    .timetable-grid thead th { background: #1a3c5e !important; color: white !important; -webkit-print-color-adjust: exact; }
-    .timetable-grid tr.break-row td { background: #fdf3dc !important; -webkit-print-color-adjust: exact; }
-    .tt-cell-content.lesson { background: #eef3fb !important; border-left: 3px solid #2563a8 !important; -webkit-print-color-adjust: exact; }
-    .tt-cell-content.break  { background: #fdf3dc !important; -webkit-print-color-adjust: exact; }
-
-    .card { box-shadow: none !important; border: 1px solid #dce3ed !important; }
-    .timetable-grid td, .timetable-grid th { border: 1px solid #dce3ed !important; }
+    .pos-wrapper    { max-width: 100%; }
+    .pos-copy       { border-color: #ccc; }
 }

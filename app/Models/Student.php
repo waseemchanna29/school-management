@@ -76,4 +76,19 @@ class Student extends Model
     {
         return $this->date_of_birth->diffInYears(now());
     }
+
+    public function schedulerAssignment()
+    {
+        return $this->hasOne(StudentScheduler::class);
+    }
+
+    public function schedulerItems()
+    {
+        return $this->hasMany(StudentSchedulerItem::class);
+    }
+
+    public function feeInvoices()
+    {
+        return $this->hasMany(FeeInvoice::class);
+    }
 }

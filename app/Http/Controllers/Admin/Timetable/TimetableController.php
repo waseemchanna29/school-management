@@ -4,27 +4,19 @@ namespace App\Http\Controllers\Admin\Timetable;
 
 use App\Helpers\CampusContext;
 use App\Http\Controllers\Controller;
-use App\Models\PeriodTemplate;
 use App\Models\SchoolClass;
 use App\Models\Section;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\Timetable;
 use App\Models\TimetableEntry;
+use App\Models\TimetablePeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TimetableController extends Controller
 {
-    const DAYS = [
-        'Mon' => 'Monday',
-        'Tue' => 'Tuesday',
-        'Wed' => 'Wednesday',
-        'Thu' => 'Thursday',
-        'Fri' => 'Friday',
-        'Sat' => 'Saturday',
-    ];
-
+    // ─── Index ──────────────────────────────────────────────────────────────
     public function index(Request $request)
     {
         $campusId = CampusContext::id();
@@ -33,30 +25,33 @@ class TimetableController extends Controller
             ->with(['schoolClass', 'section']);
 
         if ($request->filled('class_id'))      $query->where('class_id', $request->class_id);
+        if ($request->filled('section_id'))    $query->where('section_id', $request->section_id);
         if ($request->filled('academic_year')) $query->where('academic_year', $request->academic_year);
-        if ($request->filled('is_active'))     $query->where('is_active', $request->is_active === '1');
+        if ($request->filled('status')) {
+            $query->where('is_active', $request->status === 'active');
+        }
 
-        $timetables = $query->latest()->paginate(20);
+        $timetables = $query->withCount('periods')->latest()->paginate(20);
         $classes    = SchoolClass::where('campus_id', $campusId)->where('is_active', true)->orderBy('name')->get();
+        $sections   = Section::where('campus_id', $campusId)->where('is_active', true)->get();
         $years      = $this->academicYears();
-
-        return view('admin.timetable.index', compact('timetables', 'classes', 'years'));
+        return view('admin.timetable.index', compact('timetables', 'classes', 'sections', 'years'));
     }
 
+    // ─── Create ─────────────────────────────────────────────────────────────
     public function create()
     {
         $campusId = CampusContext::id();
-        $classes  = SchoolClass::where('campus_id', $campusId)
-            ->where('is_active', true)->with('sections')->orderBy('name')->get();
-        $sections = Section::where('campus_id', $campusId)->where('is_active', true)->get();
+        $classes  = SchoolClass::where('campus_id', $campusId)->where('is_active', true)
+            ->with('sections')->orderBy('name')->get();
+        $sections = Section::where('campus_id', $campusId)->where('is_active', true)
+            ->with('schoolClass')->get();
         $years    = $this->academicYears();
-        $allDays  = self::DAYS;
 
-        $hasPeriods = PeriodTemplate::where('campus_id', $campusId)->where('is_active', true)->exists();
-
-        return view('admin.timetable.create', compact('classes', 'sections', 'years', 'allDays', 'hasPeriods'));
+        return view('admin.timetable.create', compact('classes', 'sections', 'years'));
     }
 
+    // ─── Store ──────────────────────────────────────────────────────────────
     public function store(Request $request)
     {
         $request->validate([
@@ -81,54 +76,45 @@ class TimetableController extends Controller
         ]);
 
         return redirect()->route('admin.timetable.edit', $timetable)
-            ->with('success', 'Timetable created. Now fill in the schedule below.');
+            ->with('success', 'Timetable created. Now define your time periods, then fill the schedule.');
     }
 
+    // ─── Show (read-only view) ───────────────────────────────────────────────
     public function show(Timetable $timetable)
     {
         $this->authorize($timetable);
 
-        $campusId = CampusContext::id();
-        $periods  = PeriodTemplate::where('campus_id', $campusId)
-            ->where('is_active', true)
-            ->orderBy('sort_order')->orderBy('start_time')
-            ->get();
-
         $timetable->load([
-            'entries.periodTemplate',
+            'periods',
             'entries.subject',
             'entries.teacher',
+            'entries.timetablePeriod',
             'schoolClass',
             'section',
         ]);
 
-        // Build grid: period_id → day → entry
-        $grid = [];
-        foreach ($periods as $period) {
-            $grid[$period->id] = [];
-            foreach ($timetable->days as $day) {
-                $grid[$period->id][$day] = $timetable->entries
-                    ->where('period_template_id', $period->id)
-                    ->where('day', $day)
-                    ->first();
-            }
-        }
+        $grid    = $timetable->buildGrid();
+        $periods = $timetable->periods;
+        $days    = $timetable->orderedDays();
 
-        $allDays = self::DAYS;
-
-        return view('admin.timetable.show', compact('timetable', 'periods', 'grid', 'allDays'));
+        return view('admin.timetable.show', compact('timetable', 'grid', 'periods', 'days'));
     }
 
+    // ─── Edit (grid editor) ─────────────────────────────────────────────────
     public function edit(Timetable $timetable)
     {
         $this->authorize($timetable);
 
         $campusId = CampusContext::id();
 
-        $periods  = PeriodTemplate::where('campus_id', $campusId)
-            ->where('is_active', true)
-            ->orderBy('sort_order')->orderBy('start_time')
-            ->get();
+        $timetable->load([
+            'periods',
+            'entries.subject',
+            'entries.teacher',
+            'entries.timetablePeriod',
+            'schoolClass',
+            'section',
+        ]);
 
         $subjects = Subject::where('campus_id', $campusId)
             ->where('class_id', $timetable->class_id)
@@ -139,110 +125,139 @@ class TimetableController extends Controller
             ->where('is_active', true)
             ->orderBy('full_name')->get();
 
-        $timetable->load(['entries.periodTemplate', 'entries.subject', 'entries.teacher', 'schoolClass', 'section']);
+        $grid    = $timetable->buildGrid();
+        $periods = $timetable->periods;
+        $days    = $timetable->orderedDays();
 
-        // Build grid: period_id → day → entry
-        $grid = [];
-        foreach ($periods as $period) {
-            $grid[$period->id] = [];
-            foreach ($timetable->days as $day) {
-                $grid[$period->id][$day] = $timetable->entries
-                    ->where('period_template_id', $period->id)
-                    ->where('day', $day)
-                    ->first();
-            }
-        }
-
-        $allDays = self::DAYS;
+        // Default active day = first day
+        $activeDay = request('day', $days[0] ?? 'Mon');
 
         return view('admin.timetable.edit', compact(
-            'timetable', 'periods', 'subjects', 'teachers', 'grid', 'allDays'
+            'timetable',
+            'periods',
+            'subjects',
+            'teachers',
+            'grid',
+            'days',
+            'activeDay'
         ));
     }
 
+    // ─── Save Grid ──────────────────────────────────────────────────────────
     public function saveGrid(Request $request, Timetable $timetable)
     {
         $this->authorize($timetable);
 
         $request->validate([
-            'entries'                      => ['nullable', 'array'],
-            'entries.*.period_template_id' => ['required', 'exists:period_templates,id'],
-            'entries.*.day'                => ['required', 'in:Mon,Tue,Wed,Thu,Fri,Sat'],
-            'entries.*.type'               => ['required', 'in:lesson,break,free'],
-            'entries.*.subject_id'         => ['nullable', 'exists:subjects,id'],
-            'entries.*.teacher_id'         => ['nullable', 'exists:teachers,id'],
-            'entries.*.custom_label'       => ['nullable', 'string', 'max:100'],
+            'day'                         => ['required', 'in:Mon,Tue,Wed,Thu,Fri,Sat'],
+            'entries'                     => ['nullable', 'array'],
+            'entries.*.timetable_period_id' => ['required', 'exists:timetable_periods,id'],
+            'entries.*.type'              => ['required', 'in:lesson,break,free'],
+            'entries.*.subject_id'        => ['nullable', 'exists:subjects,id'],
+            'entries.*.teacher_id'        => ['nullable', 'exists:teachers,id'],
+            'entries.*.custom_label'      => ['nullable', 'string', 'max:100'],
         ]);
 
-        $campusId = CampusContext::id();
+        $day       = $request->day;
+        $campusId  = CampusContext::id();
         $conflicts = [];
 
-        DB::transaction(function () use ($request, $timetable, $campusId, &$conflicts) {
-            // Clear existing entries for this timetable
-            $timetable->entries()->delete();
+        DB::transaction(function () use ($request, $timetable, $day, $campusId, &$conflicts) {
+            // Delete existing entries for this day only
+            TimetableEntry::where('timetable_id', $timetable->id)
+                ->where('day', $day)
+                ->delete();
 
             if (empty($request->entries)) return;
 
             foreach ($request->entries as $entryData) {
-                $type       = $entryData['type'];
-                $subjectId  = $type === 'lesson' ? ($entryData['subject_id'] ?? null) : null;
-                $teacherId  = $type === 'lesson' ? ($entryData['teacher_id'] ?? null) : null;
-                $customLabel = in_array($type, ['break','free']) ? ($entryData['custom_label'] ?? null) : null;
+                $type        = $entryData['type'];
+                $subjectId   = $type === 'lesson' ? ($entryData['subject_id']  ?? null) : null;
+                $teacherId   = $type === 'lesson' ? ($entryData['teacher_id']  ?? null) : null;
+                $customLabel = $type === 'break'  ? ($entryData['custom_label'] ?? null) : null;
 
-                // Soft conflict check: same teacher, same day, same period, different timetable
+                // Soft conflict check — same teacher, same day, same period, different timetable
                 if ($teacherId && $type === 'lesson') {
                     $conflict = TimetableEntry::where('teacher_id', $teacherId)
-                        ->where('day', $entryData['day'])
-                        ->where('period_template_id', $entryData['period_template_id'])
+                        ->where('day', $day)
+                        ->where('timetable_period_id', $entryData['timetable_period_id'])
                         ->where('type', 'lesson')
-                        ->whereHas('timetable', fn($q) => $q->where('campus_id', $campusId)
+                        ->whereHas('timetable', fn($q) => $q
+                            ->where('campus_id', $campusId)
                             ->where('id', '!=', $timetable->id)
                             ->where('is_active', true))
-                        ->with(['teacher', 'timetable.schoolClass', 'timetable.section'])
+                        ->with([
+                            'teacher',
+                            'timetable.schoolClass',
+                            'timetable.section',
+                            'timetablePeriod',
+                        ])
                         ->first();
 
                     if ($conflict) {
-                        $conflicts[] = [
-                            'teacher'  => $conflict->teacher->full_name,
-                            'day'      => $entryData['day'],
-                            'period'   => PeriodTemplate::find($entryData['period_template_id'])?->label,
-                            'conflict' => $conflict->timetable->name,
-                        ];
+                        $conflicts[] = sprintf(
+                            '%s on %s / %s (also in %s)',
+                            $conflict->teacher->full_name,
+                            $day,
+                            $conflict->timetablePeriod->label,
+                            $conflict->timetable->name
+                        );
                     }
                 }
 
                 TimetableEntry::create([
-                    'timetable_id'       => $timetable->id,
-                    'period_template_id' => $entryData['period_template_id'],
-                    'day'                => $entryData['day'],
-                    'type'               => $type,
-                    'subject_id'         => $subjectId,
-                    'teacher_id'         => $teacherId,
-                    'custom_label'       => $customLabel,
+                    'timetable_id'        => $timetable->id,
+                    'timetable_period_id' => $entryData['timetable_period_id'],
+                    'day'                 => $day,
+                    'type'                => $type,
+                    'subject_id'          => $subjectId,
+                    'teacher_id'          => $teacherId,
+                    'custom_label'        => $customLabel,
                 ]);
             }
         });
 
+        // Determine next day to redirect to
+        $days    = $timetable->orderedDays();
+        $nextDay = $days[array_search($day, $days) + 1] ?? null;
+
         if (!empty($conflicts)) {
-            $msg = 'Timetable saved with ' . count($conflicts) . ' teacher conflict(s): ';
-            $msg .= collect($conflicts)->map(fn($c) =>
-                "{$c['teacher']} on {$c['day']} / {$c['period']} (also in {$c['conflict']})"
-            )->join(' | ');
-            return redirect()->route('admin.timetable.edit', $timetable)->with('warning', $msg);
+            $msg = count($conflicts) . ' teacher conflict(s): ' . implode(' | ', $conflicts);
+            return redirect()
+                ->route('admin.timetable.edit', array_merge(
+                    ['timetable' => $timetable->id],
+                    $nextDay ? ['day' => $nextDay] : []
+                ))
+                ->with('warning', "Day saved with warnings — {$msg}");
         }
 
-        return redirect()->route('admin.timetable.show', $timetable)
-            ->with('success', 'Timetable saved successfully.');
+        if ($nextDay) {
+            return redirect()
+                ->route('admin.timetable.edit', ['timetable' => $timetable->id, 'day' => $nextDay])
+                ->with('success', "{$day} saved. Now filling {$nextDay}.");
+        }
+
+        return redirect()
+            ->route('admin.timetable.show', $timetable)
+            ->with('success', 'Timetable fully saved.');
     }
 
+    // ─── Destroy ────────────────────────────────────────────────────────────
     public function destroy(Timetable $timetable)
     {
         $this->authorize($timetable);
-        $timetable->entries()->delete();
-        $timetable->delete();
-        return redirect()->route('admin.timetable.index')->with('success', 'Timetable deleted.');
+
+        DB::transaction(function () use ($timetable) {
+            $timetable->entries()->delete();
+            $timetable->periods()->delete();
+            $timetable->delete();
+        });
+
+        return redirect()->route('admin.timetable.index')
+            ->with('success', 'Timetable deleted.');
     }
 
+    // ─── Toggle Active ───────────────────────────────────────────────────────
     public function toggleActive(Timetable $timetable)
     {
         $this->authorize($timetable);
@@ -250,40 +265,64 @@ class TimetableController extends Controller
         return back()->with('success', 'Timetable status updated.');
     }
 
+    // ─── Teacher Schedule View ───────────────────────────────────────────────
     public function teacherView(Teacher $teacher)
     {
         if ($teacher->campus_id !== CampusContext::id()) abort(403);
 
         $campusId = CampusContext::id();
-        $periods  = PeriodTemplate::where('campus_id', $campusId)
-            ->where('is_active', true)
-            ->orderBy('sort_order')->orderBy('start_time')
-            ->get();
 
-        // All active entries for this teacher
+        // Collect all active entries for this teacher across all timetables
         $entries = TimetableEntry::where('teacher_id', $teacher->id)
             ->where('type', 'lesson')
-            ->whereHas('timetable', fn($q) => $q->where('campus_id', $campusId)->where('is_active', true))
-            ->with(['timetable.schoolClass', 'timetable.section', 'subject', 'periodTemplate'])
+            ->whereHas('timetable', fn($q) => $q
+                ->where('campus_id', $campusId)
+                ->where('is_active', true))
+            ->with([
+                'timetable.schoolClass',
+                'timetable.section',
+                'subject',
+                'timetablePeriod',
+            ])
             ->get();
 
-        // Build grid: period_id → day → entry
-        $allDays = self::DAYS;
-        $grid    = [];
+        // Collect all unique periods across all timetables this teacher is in,
+        // grouped by time for display (we normalise by start_time + label)
+        $allPeriods = $entries
+            ->map(fn($e) => $e->timetablePeriod)
+            ->filter()
+            ->unique(fn($p) => $p->start_time . $p->label)
+            ->sortBy('start_time')
+            ->values();
 
-        foreach ($periods as $period) {
-            $grid[$period->id] = [];
-            foreach (array_keys($allDays) as $day) {
-                $grid[$period->id][$day] = $entries
-                    ->where('period_template_id', $period->id)
-                    ->where('day', $day)
-                    ->first();
+        // Build grid: period key → day → entry
+        $grid = [];
+        foreach ($allPeriods as $period) {
+            $key = $period->start_time . '|' . $period->label;
+            $grid[$key] = [];
+            foreach (array_keys(Timetable::DAY_LABELS) as $day) {
+                // Find matching entry: same day, same start_time + label
+                $grid[$key][$day] = $entries->first(function ($e) use ($day, $period) {
+                    return $e->day === $day
+                        && $e->timetablePeriod
+                        && $e->timetablePeriod->start_time === $period->start_time
+                        && $e->timetablePeriod->label      === $period->label;
+                });
             }
         }
 
-        return view('admin.timetable.teacher-view', compact('teacher', 'periods', 'grid', 'allDays'));
+        $days = array_keys(Timetable::DAY_LABELS);
+
+        return view('admin.timetable.teacher-view', compact(
+            'teacher',
+            'allPeriods',
+            'grid',
+            'days',
+            'entries'
+        ));
     }
 
+    // ─── Helpers ─────────────────────────────────────────────────────────────
     private function authorize(Timetable $t): void
     {
         if ($t->campus_id !== CampusContext::id()) abort(403);

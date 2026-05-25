@@ -3,22 +3,22 @@
 use App\Http\Controllers\Admin\CampusSelectController;
 use App\Http\Controllers\Admin\ClassController;
 use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\Fee\FeeInvoiceController;
-use App\Http\Controllers\Admin\Fee\FeeLabelController;
-use App\Http\Controllers\Admin\Fee\FeePaymentController;
-use App\Http\Controllers\Admin\Fee\FeeStructureController;
-use App\Http\Controllers\Admin\Fee\StudentFeeController;
 use App\Http\Controllers\Admin\SectionController;
 use App\Http\Controllers\Admin\StudentController;
 use App\Http\Controllers\Admin\SubjectController;
 use App\Http\Controllers\Admin\TeacherController;
+use App\Http\Controllers\Admin\Fee\CampusSettingController;
+use App\Http\Controllers\Admin\Fee\FeeSchedulerController;
+use App\Http\Controllers\Admin\Fee\StudentFeeController;
+use App\Http\Controllers\Admin\Fee\FeeInvoiceController;
+use App\Http\Controllers\Admin\Fee\FeePaymentController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\SuperAdmin\AdminUserController;
 use App\Http\Controllers\SuperAdmin\CampusController;
 use App\Http\Controllers\SuperAdmin\DashboardController as SuperDashboard;
-use App\Http\Controllers\Admin\Timetable\PeriodTemplateController;
 use App\Http\Controllers\Admin\Timetable\TimetableController;
+use App\Http\Controllers\Admin\Timetable\TimetablePeriodController;
 use Illuminate\Support\Facades\Route;
 
 // Root redirect
@@ -73,34 +73,40 @@ Route::middleware(['auth', 'admin', 'campus_selected'])->prefix('admin')->name('
     Route::delete('/subjects/{subject}', [SubjectController::class, 'destroy'])->name('subjects.destroy');
 
     Route::post('/dashboard/generate-monthly-invoices', [DashboardController::class, 'generateMonthlyInvoices'])->name('dashboard.generate-monthly');
-    // ─── Fee Management ────────────────────────────────────────────────────────
+    // ─── Fee Management ──────────────────────────────────────────────────────────
     Route::prefix('fee')->name('fee.')->group(function () {
 
-        // Labels
-        Route::get('/labels',              [FeeLabelController::class,     'index'])->name('labels.index');
-        Route::post('/labels',             [FeeLabelController::class,     'store'])->name('labels.store');
-        Route::put('/labels/{feeLabel}',   [FeeLabelController::class,    'update'])->name('labels.update');
-        Route::delete('/labels/{feeLabel}', [FeeLabelController::class,   'destroy'])->name('labels.destroy');
-        Route::post('/labels/{feeLabel}/toggle', [FeeLabelController::class, 'toggle'])->name('labels.toggle');
+        // Campus settings (logo etc.)
+        Route::get('/settings',              [CampusSettingController::class, 'edit'])->name('settings');
+        Route::post('/settings',             [CampusSettingController::class, 'update'])->name('settings.update');
+        Route::delete('/settings/logo',      [CampusSettingController::class, 'removeLogo'])->name('settings.remove-logo');
 
-        // Structures
-        Route::resource('structures', FeeStructureController::class)->except('show');
-        Route::get('/structures/{structure}',       [FeeStructureController::class, 'show'])->name('structures.show');
-        Route::post('/structures/{structure}/revise', [FeeStructureController::class, 'revise'])->name('structures.revise');
+        // Schedulers
+        Route::get('/schedulers',            [FeeSchedulerController::class, 'index'])->name('schedulers.index');
+        Route::get('/schedulers/create',     [FeeSchedulerController::class, 'create'])->name('schedulers.create');
+        Route::post('/schedulers',           [FeeSchedulerController::class, 'store'])->name('schedulers.store');
+        Route::get('/schedulers/{scheduler}',        [FeeSchedulerController::class, 'show'])->name('schedulers.show');
+        Route::get('/schedulers/{scheduler}/edit',   [FeeSchedulerController::class, 'edit'])->name('schedulers.edit');
+        Route::put('/schedulers/{scheduler}',        [FeeSchedulerController::class, 'update'])->name('schedulers.update');
+        Route::delete('/schedulers/{scheduler}',     [FeeSchedulerController::class, 'destroy'])->name('schedulers.destroy');
+        Route::post('/schedulers/{scheduler}/toggle', [FeeSchedulerController::class, 'toggle'])->name('schedulers.toggle');
 
-        // Student fees
-        Route::get('/students/{student}',            [StudentFeeController::class, 'show'])->name('student.show');
-        Route::post('/students/{student}/assign',    [StudentFeeController::class, 'assign'])->name('student.assign');
-        Route::post('/students/{student}/add-fee',   [StudentFeeController::class, 'addFee'])->name('student.add-fee');
-        Route::put('/student-fees/{studentFee}',     [StudentFeeController::class, 'updateFee'])->name('student.update-fee');
-        Route::delete('/student-fees/{studentFee}',  [StudentFeeController::class, 'destroyFee'])->name('student.destroy-fee');
+        // Student fee profile
+        Route::get('/student/{student}',             [StudentFeeController::class, 'show'])->name('student.show');
+        Route::post('/student/{student}/assign',     [StudentFeeController::class, 'assign'])->name('student.assign');
+        Route::post('/student/{student}/add-item',   [StudentFeeController::class, 'addItem'])->name('student.add-item');
+        Route::post('/student/{student}/unassign',   [StudentFeeController::class, 'unassign'])->name('student.unassign');
+        Route::put('/student-item/{item}',           [StudentFeeController::class, 'updateItem'])->name('student.update-item');
+        Route::delete('/student-item/{item}',        [StudentFeeController::class, 'removeItem'])->name('student.remove-item');
 
         // Invoices
         Route::get('/invoices',                      [FeeInvoiceController::class, 'index'])->name('invoices.index');
         Route::get('/invoices/create',               [FeeInvoiceController::class, 'create'])->name('invoices.create');
         Route::post('/invoices',                     [FeeInvoiceController::class, 'store'])->name('invoices.store');
+        Route::get('/invoices/bulk',                 [FeeInvoiceController::class, 'bulkCreate'])->name('invoices.bulk');
+        Route::post('/invoices/bulk',                [FeeInvoiceController::class, 'bulkStore'])->name('invoices.bulk-store');
         Route::get('/invoices/{invoice}',            [FeeInvoiceController::class, 'show'])->name('invoices.show');
-        Route::put('/invoices/{invoice}/adjustments', [FeeInvoiceController::class, 'updateAdjustments'])->name('invoices.adjustments');
+        Route::put('/invoices/{invoice}/adjust',     [FeeInvoiceController::class, 'adjust'])->name('invoices.adjust');
         Route::post('/invoices/{invoice}/waive',     [FeeInvoiceController::class, 'waive'])->name('invoices.waive');
         Route::delete('/invoices/{invoice}',         [FeeInvoiceController::class, 'destroy'])->name('invoices.destroy');
 
@@ -111,24 +117,35 @@ Route::middleware(['auth', 'admin', 'campus_selected'])->prefix('admin')->name('
 
     Route::prefix('timetable')->name('timetable.')->group(function () {
 
-        // Period Templates (campus-level)
-        Route::get('/periods',                      [PeriodTemplateController::class, 'index'])->name('periods.index');
-        Route::post('/periods',                     [PeriodTemplateController::class, 'store'])->name('periods.store');
-        Route::put('/periods/{periodTemplate}',     [PeriodTemplateController::class, 'update'])->name('periods.update');
-        Route::delete('/periods/{periodTemplate}',  [PeriodTemplateController::class, 'destroy'])->name('periods.destroy');
-        Route::post('/periods/reorder',             [PeriodTemplateController::class, 'reorder'])->name('periods.reorder');
+        // Timetable CRUD
+        Route::get('/',                   [TimetableController::class, 'index'])->name('index');
+        Route::get('/create',             [TimetableController::class, 'create'])->name('create');
+        Route::post('/',                  [TimetableController::class, 'store'])->name('store');
+        Route::get('/{timetable}',        [TimetableController::class, 'show'])->name('show');
+        Route::get('/{timetable}/edit',   [TimetableController::class, 'edit'])->name('edit');
+        Route::post('/{timetable}/grid',  [TimetableController::class, 'saveGrid'])->name('save-grid');
+        Route::delete('/{timetable}',     [TimetableController::class, 'destroy'])->name('destroy');
+        Route::post('/{timetable}/toggle', [TimetableController::class, 'toggleActive'])->name('toggle');
 
-        // Timetables
-        Route::get('/',                             [TimetableController::class, 'index'])->name('index');
-        Route::get('/create',                       [TimetableController::class, 'create'])->name('create');
-        Route::post('/',                            [TimetableController::class, 'store'])->name('store');
-        Route::get('/{timetable}',                  [TimetableController::class, 'show'])->name('show');
-        Route::get('/{timetable}/edit',             [TimetableController::class, 'edit'])->name('edit');
-        Route::post('/{timetable}/grid',            [TimetableController::class, 'saveGrid'])->name('save-grid');
-        Route::delete('/{timetable}',               [TimetableController::class, 'destroy'])->name('destroy');
-        Route::post('/{timetable}/toggle',          [TimetableController::class, 'toggleActive'])->name('toggle');
+        // Teacher view
+        Route::get('/teacher/{teacher}',  [TimetableController::class, 'teacherView'])->name('teacher-view');
 
-        // Teacher schedule view
-        Route::get('/teacher/{teacher}',            [TimetableController::class, 'teacherView'])->name('teacher-view');
+        // Periods (nested under timetable)
+        Route::post(
+            '/{timetable}/periods',
+            [TimetablePeriodController::class, 'store']
+        )->name('periods.store');
+        Route::put(
+            '/{timetable}/periods/{period}',
+            [TimetablePeriodController::class, 'update']
+        )->name('periods.update');
+        Route::delete(
+            '/{timetable}/periods/{period}',
+            [TimetablePeriodController::class, 'destroy']
+        )->name('periods.destroy');
+        Route::post(
+            '/{timetable}/periods/reorder',
+            [TimetablePeriodController::class, 'reorder']
+        )->name('periods.reorder');
     });
 });

@@ -13,25 +13,28 @@ return new class extends Migration
     {
         Schema::create('fee_invoices', function (Blueprint $table) {
             $table->id();
-              $table->string('invoice_number')->unique();
+             $table->string('invoice_number')->unique();
             $table->foreignId('student_id')->constrained()->onDelete('cascade');
             $table->foreignId('campus_id')->constrained()->onDelete('cascade');
-            $table->string('academic_year');
-            $table->string('period_label');            // e.g. "January 2025", "Annual 2025", "Exam Term 1"
-            $table->enum('period_type', ['monthly', 'yearly', 'one_time']);
-            $table->integer('month')->nullable();      // 1-12 for monthly
-            $table->integer('year');
-            $table->decimal('total_amount', 10, 2)->default(0);
-            $table->decimal('discount', 10, 2)->default(0);
+            $table->foreignId('fee_scheduler_id')->nullable()->constrained()->nullOnDelete();
+            $table->unsignedTinyInteger('billing_month');   // 1-12
+            $table->unsignedSmallInteger('billing_year');
+            $table->string('billing_period_label');         // e.g. "May 2026"
+            $table->decimal('subtotal', 10, 2)->default(0);
+            $table->decimal('outstanding', 10, 2)->default(0);  // manually added
             $table->decimal('fine', 10, 2)->default(0);
+            $table->decimal('discount', 10, 2)->default(0);
             $table->decimal('net_amount', 10, 2)->default(0);
             $table->decimal('paid_amount', 10, 2)->default(0);
             $table->decimal('balance', 10, 2)->default(0);
             $table->enum('status', ['unpaid', 'partial', 'paid', 'waived'])->default('unpaid');
             $table->date('due_date');
             $table->text('remarks')->nullable();
-           
             $table->timestamps();
+
+            // One invoice per student per month per year
+            $table->unique(['student_id', 'billing_month', 'billing_year'], 'unique_invoice');
+       
         });
     }
 

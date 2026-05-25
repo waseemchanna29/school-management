@@ -28,6 +28,7 @@
             </div>
         </div>
         <div class="d-flex gap-2">
+            {{-- Add to the action buttons at top of student show page --}}
             <a href="{{ route('admin.fee.student.show', $student) }}" class="btn-outline-primary btn btn-sm">
                 <i class="fas fa-file-invoice-dollar"></i> Manage Fees
             </a>

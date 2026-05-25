@@ -4,158 +4,133 @@ namespace App\Http\Controllers\Admin\Fee;
 
 use App\Helpers\CampusContext;
 use App\Http\Controllers\Controller;
-use App\Models\FeeLabel;
-use App\Models\FeeStructure;
 use App\Models\FeeInvoice;
+use App\Models\FeeScheduler;
 use App\Models\Student;
-use App\Models\StudentFee;
+use App\Models\StudentScheduler;
+use App\Models\StudentSchedulerItem;
 use App\Services\FeeService;
 use Illuminate\Http\Request;
 
 class StudentFeeController extends Controller
 {
-    public function __construct(private FeeService $feeService) {}
+    public function __construct(private FeeService $fee) {}
 
+    // Show student's fee profile
     public function show(Student $student)
     {
-        if ($student->campus_id !== CampusContext::id()) abort(403);
+        $this->gate($student);
 
-        $academicYear = request('academic_year', $this->currentAcademicYear());
+        $assignment = StudentScheduler::where('student_id', $student->id)
+            ->with('feeScheduler')
+            ->first();
 
-        // All personal fee lines for this student this year
-        $studentFees = StudentFee::where('student_id', $student->id)
-            ->where('academic_year', $academicYear)
-            ->with(['feeLabel', 'feeStructure'])
-            ->orderBy('fee_structure_id')
+        $items = StudentSchedulerItem::where('student_id', $student->id)
+            ->orderBy('sort_order')
             ->get();
 
-        // Group by structure for display
-        $feesByStructure = $studentFees->groupBy(fn($f) => $f->feeStructure?->name ?? 'Custom / No Structure');
-
-        // All structures for this student's class to allow assigning
-        $availableStructures = FeeStructure::where('campus_id', CampusContext::id())
-            ->where('class_id', $student->class_id)
+        $schedulers = FeeScheduler::where('campus_id', CampusContext::id())
             ->where('is_active', true)
-            ->with('items.feeLabel')
+            ->with('items')
             ->get();
 
-        // All labels for adding custom fee
-        $labels = FeeLabel::where('campus_id', CampusContext::id())
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
-
-        // Invoices this year
         $invoices = FeeInvoice::where('student_id', $student->id)
-            ->where('academic_year', $academicYear)
             ->latest()
-            ->get();
+            ->paginate(12);
 
-        $years = $this->academicYears();
-
-        return view('admin.fee.student.show', compact(
-            'student', 'studentFees', 'feesByStructure',
-            'availableStructures', 'labels', 'invoices',
-            'academicYear', 'years'
+        return view('admin.fee.student', compact(
+            'student', 'assignment', 'items', 'schedulers', 'invoices'
         ));
     }
 
+    // Assign scheduler to student
     public function assign(Request $request, Student $student)
     {
-        if ($student->campus_id !== CampusContext::id()) abort(403);
+        $this->gate($student);
 
         $request->validate([
-            'fee_structure_id' => ['required', 'exists:fee_structures,id'],
-            'academic_year'    => ['required', 'string'],
+            'fee_scheduler_id' => ['required', 'exists:fee_schedulers,id'],
+            'assigned_date'    => ['required', 'date'],
         ]);
 
-        $structure = FeeStructure::where('campus_id', CampusContext::id())
-            ->findOrFail($request->fee_structure_id);
+        $scheduler = FeeScheduler::where('campus_id', CampusContext::id())
+            ->findOrFail($request->fee_scheduler_id);
 
-        $this->feeService->assignStructureToStudent(
-            $student,
-            $structure->id,
-            $request->academic_year
-        );
+        $this->fee->assignScheduler($student, $scheduler->id, $request->assigned_date);
 
-        return back()->with('success', "\"{$structure->name}\" assigned to {$student->full_name} successfully.");
+        return back()->with('success', "\"{$scheduler->name}\" assigned to {$student->full_name}.");
     }
 
-    public function updateFee(Request $request, StudentFee $studentFee)
+    // Update a single item on the student's personal copy
+    public function updateItem(Request $request, StudentSchedulerItem $item)
     {
-        if ($studentFee->campus_id !== CampusContext::id()) abort(403);
+        if ($item->campus_id !== CampusContext::id()) abort(403);
 
         $request->validate([
+            'label'     => ['required', 'string', 'max:150'],
             'amount'    => ['required', 'numeric', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
             'note'      => ['nullable', 'string', 'max:255'],
         ]);
 
-        $studentFee->update([
+        $item->update([
+            'label'     => $request->label,
             'amount'    => $request->amount,
             'is_active' => $request->boolean('is_active', true),
             'note'      => $request->note,
         ]);
 
-        return back()->with('success', 'Fee updated. This change only affects this student.');
+        return back()->with('success', 'Fee item updated for this student only.');
     }
 
-    public function addFee(Request $request, Student $student)
+    // Add a custom item to student's fee
+    public function addItem(Request $request, Student $student)
     {
-        if ($student->campus_id !== CampusContext::id()) abort(403);
+        $this->gate($student);
+
+        $assignment = StudentScheduler::where('student_id', $student->id)->firstOrFail();
 
         $request->validate([
-            'fee_label_id'  => ['required', 'exists:fee_labels,id'],
-            'amount'        => ['required', 'numeric', 'min:0'],
-            'academic_year' => ['required', 'string'],
-            'note'          => ['nullable', 'string'],
+            'label'  => ['required', 'string', 'max:150'],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'note'   => ['nullable', 'string'],
         ]);
 
-        // Check if same label already exists with no structure (custom)
-        $exists = StudentFee::where('student_id', $student->id)
-            ->where('fee_label_id', $request->fee_label_id)
-            ->where('academic_year', $request->academic_year)
-            ->whereNull('fee_structure_id')
-            ->exists();
+        $max = StudentSchedulerItem::where('student_id', $student->id)->max('sort_order') ?? -1;
 
-        if ($exists) {
-            return back()->with('error', 'This custom fee label already exists for this student this year.');
-        }
-
-        StudentFee::create([
+        StudentSchedulerItem::create([
             'student_id'       => $student->id,
             'campus_id'        => $student->campus_id,
-            'fee_label_id'     => $request->fee_label_id,
-            'fee_structure_id' => null,
-            'academic_year'    => $request->academic_year,
+            'fee_scheduler_id' => $assignment->fee_scheduler_id,
+            'label'            => $request->label,
             'amount'           => $request->amount,
             'is_active'        => true,
+            'sort_order'       => $max + 1,
             'note'             => $request->note,
         ]);
 
-        return back()->with('success', 'Custom fee line added to student.');
+        return back()->with('success', 'Custom fee item added.');
     }
 
-    public function destroyFee(StudentFee $studentFee)
+    // Remove an item from student's fee
+    public function removeItem(StudentSchedulerItem $item)
     {
-        if ($studentFee->campus_id !== CampusContext::id()) abort(403);
-        $studentFee->delete();
-        return back()->with('success', 'Fee line removed from student.');
+        if ($item->campus_id !== CampusContext::id()) abort(403);
+        $item->delete();
+        return back()->with('success', 'Fee item removed.');
     }
 
-    private function currentAcademicYear(): string
+    // Remove scheduler assignment from student
+    public function unassign(Student $student)
     {
-        $y = (int) date('Y');
-        return date('n') >= 4 ? "$y-" . ($y + 1) : ($y - 1) . "-$y";
+        $this->gate($student);
+        StudentScheduler::where('student_id', $student->id)->delete();
+        StudentSchedulerItem::where('student_id', $student->id)->delete();
+        return back()->with('success', 'Scheduler unassigned from student.');
     }
 
-    private function academicYears(): array
+    private function gate(Student $s): void
     {
-        $years = [];
-        $start = (int) date('Y') - 1;
-        for ($i = $start; $i <= $start + 3; $i++) {
-            $years[] = $i . '-' . ($i + 1);
-        }
-        return $years;
+        if ($s->campus_id !== CampusContext::id()) abort(403);
     }
 }

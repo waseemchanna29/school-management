@@ -11,12 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('fee_structure_items', function (Blueprint $table) {
+        Schema::create('fee_scheduler_items', function (Blueprint $table) {
             $table->id();
-              $table->foreignId('fee_structure_id')->constrained()->onDelete('cascade');
-            $table->foreignId('fee_label_id')->constrained()->onDelete('cascade');
+              $table->foreignId('fee_scheduler_id')->constrained()->onDelete('cascade');
+            $table->string('label');             // e.g. "Tuition Fee", "Computer Lab"
             $table->decimal('amount', 10, 2);
-            $table->boolean('is_active')->default(true);
+            $table->unsignedSmallInteger('sort_order')->default(0);
+          
             $table->timestamps();
         });
     }
@@ -26,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('fee_structure_items');
+        Schema::dropIfExists('fee_scheduler_items');
     }
 };

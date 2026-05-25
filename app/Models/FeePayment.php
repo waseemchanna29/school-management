@@ -15,5 +15,4 @@ class FeePayment extends Model
 
     public function invoice()  { return $this->belongsTo(FeeInvoice::class, 'fee_invoice_id'); }
     public function student()  { return $this->belongsTo(Student::class); }
-    public function campus()   { return $this->belongsTo(Campus::class); }
 }

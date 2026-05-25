@@ -11,13 +11,14 @@ use Illuminate\Http\Request;
 
 class FeePaymentController extends Controller
 {
-    public function __construct(private FeeService $feeService) {}
+    public function __construct(private FeeService $fee) {}
 
     public function store(Request $request, FeeInvoice $invoice)
     {
         if ($invoice->campus_id !== CampusContext::id()) abort(403);
+
         if (in_array($invoice->status, ['paid', 'waived'])) {
-            return back()->with('error', 'This invoice is already ' . $invoice->status . '.');
+            return back()->with('error', 'Invoice is already ' . $invoice->status . '.');
         }
 
         $request->validate([
@@ -29,7 +30,7 @@ class FeePaymentController extends Controller
             'remarks'      => ['nullable', 'string'],
         ]);
 
-        $this->feeService->recordPayment($invoice, $request->all());
+        $this->fee->recordPayment($invoice, $request->all());
 
         return back()->with('success', 'Payment recorded successfully.');
     }

@@ -11,15 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('period_templates', function (Blueprint $table) {
+        Schema::create('student_scheduler_items', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('student_id')->constrained()->onDelete('cascade');
             $table->foreignId('campus_id')->constrained()->onDelete('cascade');
-            $table->string('label');           // e.g. "Period 1", "Lunch Break", "Jummah Prayer"
-            $table->time('start_time');
-            $table->time('end_time');
-            $table->boolean('is_break')->default(false);   // true = break/prayer/assembly
-            $table->unsignedSmallInteger('sort_order')->default(0);
+            $table->foreignId('fee_scheduler_id')->constrained()->onDelete('cascade');
+            $table->string('label');
+            $table->decimal('amount', 10, 2);
             $table->boolean('is_active')->default(true);
+            $table->unsignedSmallInteger('sort_order')->default(0);
+            $table->text('note')->nullable();
             $table->timestamps();
         });
     }
@@ -29,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('period_templates');
+        Schema::dropIfExists('student_scheduler_items');
     }
 };

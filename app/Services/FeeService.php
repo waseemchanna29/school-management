@@ -6,127 +6,123 @@ use App\Models\FeeInvoice;
 use App\Models\FeeInvoiceItem;
 use App\Models\FeePayment;
 use App\Models\Student;
-use App\Models\StudentFee;
-use Carbon\Carbon;
+use App\Models\StudentScheduler;
 use Illuminate\Support\Facades\DB;
 
 class FeeService
 {
     /**
-     * Assign a fee structure to a student.
-     * Creates a personal StudentFee row per structure item.
-     * Existing rows for the same structure are overwritten;
-     * rows from other structures are left untouched.
+     * Assign a scheduler to a student.
+     * Replaces any existing scheduler and creates a fresh personal copy of items.
      */
-    public function assignStructureToStudent(
-        Student $student,
-        int     $feeStructureId,
-        string  $academicYear
-    ): void {
-        $structure = \App\Models\FeeStructure::with('items.feeLabel')
-            ->findOrFail($feeStructureId);
+    public function assignScheduler(Student $student, int $schedulerId, string $assignedDate): void
+    {
+        DB::transaction(function () use ($student, $schedulerId, $assignedDate) {
+            $scheduler = \App\Models\FeeScheduler::with('items')->findOrFail($schedulerId);
 
-        DB::transaction(function () use ($student, $structure, $academicYear) {
-            foreach ($structure->items->where('is_active', true) as $item) {
-                StudentFee::updateOrCreate(
-                    [
-                        'student_id'          => $student->id,
-                        'fee_label_id'        => $item->fee_label_id,
-                        'fee_structure_id'    => $structure->id,
-                        'academic_year'       => $academicYear,
-                    ],
-                    [
-                        'campus_id'             => $student->campus_id,
-                        'fee_structure_item_id' => $item->id,
-                        'amount'                => $item->amount,
-                        'is_active'             => true,
-                        'note'                  => null,
-                    ]
-                );
+            // Remove old assignment and personal items
+            \App\Models\StudentScheduler::where('student_id', $student->id)->delete();
+            \App\Models\StudentSchedulerItem::where('student_id', $student->id)->delete();
+
+            // Create new assignment
+            StudentScheduler::create([
+                'student_id'       => $student->id,
+                'campus_id'        => $student->campus_id,
+                'fee_scheduler_id' => $scheduler->id,
+                'assigned_date'    => $assignedDate,
+            ]);
+
+            // Copy items as personal editable lines
+            foreach ($scheduler->items as $i => $item) {
+                \App\Models\StudentSchedulerItem::create([
+                    'student_id'       => $student->id,
+                    'campus_id'        => $student->campus_id,
+                    'fee_scheduler_id' => $scheduler->id,
+                    'label'            => $item->label,
+                    'amount'           => $item->amount,
+                    'is_active'        => true,
+                    'sort_order'       => $i,
+                    'note'             => null,
+                ]);
             }
         });
     }
 
     /**
-     * Generate an invoice for one student for a given period.
-     * Pulls from student_fees filtered by the structure type.
+     * Generate a single invoice for one student for a billing month.
      */
     public function generateInvoice(
         Student $student,
-        string  $academicYear,
-        string  $type,           // one_time | monthly | yearly
+        int     $month,
         int     $year,
-        ?int    $month      = null,
-        ?string $periodLabel = null,
-        ?string $dueDate    = null
+        string  $dueDate,
+        float   $outstanding = 0,
+        float   $fine        = 0,
+        float   $discount    = 0,
+        ?string $remarks     = null
     ): FeeInvoice {
+        // Check for duplicate
+        $exists = FeeInvoice::where('student_id', $student->id)
+            ->where('billing_month', $month)
+            ->where('billing_year', $year)
+            ->exists();
 
-        // Get active student fees whose source structure matches the type
-        $fees = StudentFee::where('student_id', $student->id)
-            ->where('academic_year', $academicYear)
-            ->where('is_active', true)
-            ->whereHas('feeStructure', fn($q) => $q->where('type', $type))
-            ->with(['feeLabel', 'feeStructure'])
-            ->get();
-
-        if ($fees->isEmpty()) {
+        if ($exists) {
             throw new \Exception(
-                "No active {$type} fee lines found for student {$student->full_name} in {$academicYear}."
+                "Invoice for {$student->full_name} for " .
+                date('F', mktime(0,0,0,$month,1)) . " {$year} already exists."
             );
         }
 
-        // Build period label automatically if not provided
-        $label = $periodLabel ?? match($type) {
-            'monthly'  => Carbon::create()->month($month)->format('F') . ' ' . $year,
-            'yearly'   => 'Annual ' . $year,
-            'one_time' => $fees->first()->feeStructure->name . ' ' . $year,
-        };
+        // Get student's active personal fee items
+        $assignment = StudentScheduler::where('student_id', $student->id)->first();
 
-        // Check duplicate for monthly invoices
-        if ($type === 'monthly' && $month !== null) {
-            $exists = FeeInvoice::where('student_id', $student->id)
-                ->where('period_type', 'monthly')
-                ->where('month', $month)
-                ->where('year', $year)
-                ->exists();
-
-            if ($exists) {
-                throw new \Exception(
-                    "Monthly invoice for {$label} already exists for {$student->full_name}."
-                );
-            }
+        if (!$assignment) {
+            throw new \Exception("{$student->full_name} has no fee scheduler assigned.");
         }
 
-        $total = $fees->sum('amount');
+        $items = \App\Models\StudentSchedulerItem::where('student_id', $student->id)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+
+        if ($items->isEmpty()) {
+            throw new \Exception("{$student->full_name} has no active fee items.");
+        }
+
+        $subtotal  = $items->sum('amount');
+        $netAmount = $subtotal + $outstanding + $fine - $discount;
 
         return DB::transaction(function () use (
-            $student, $academicYear, $type, $year, $month, $label, $dueDate, $fees, $total
+            $student, $month, $year, $dueDate, $outstanding, $fine, $discount,
+            $remarks, $assignment, $items, $subtotal, $netAmount
         ) {
             $invoice = FeeInvoice::create([
-                'invoice_number' => $this->generateInvoiceNumber(),
-                'student_id'     => $student->id,
-                'campus_id'      => $student->campus_id,
-                'academic_year'  => $academicYear,
-                'period_label'   => $label,
-                'period_type'    => $type,
-                'month'          => $month,
-                'year'           => $year,
-                'total_amount'   => $total,
-                'discount'       => 0,
-                'fine'           => 0,
-                'net_amount'     => $total,
-                'paid_amount'    => 0,
-                'balance'        => $total,
-                'status'         => 'unpaid',
-                'due_date'       => $dueDate ?? now()->endOfMonth()->toDateString(),
+                'invoice_number'       => $this->nextInvoiceNumber(),
+                'student_id'           => $student->id,
+                'campus_id'            => $student->campus_id,
+                'fee_scheduler_id'     => $assignment->fee_scheduler_id,
+                'billing_month'        => $month,
+                'billing_year'         => $year,
+                'billing_period_label' => date('F', mktime(0,0,0,$month,1)) . ' ' . $year,
+                'subtotal'             => $subtotal,
+                'outstanding'          => $outstanding,
+                'fine'                 => $fine,
+                'discount'             => $discount,
+                'net_amount'           => $netAmount,
+                'paid_amount'          => 0,
+                'balance'              => $netAmount,
+                'status'               => 'unpaid',
+                'due_date'             => $dueDate,
+                'remarks'              => $remarks,
             ]);
 
-            foreach ($fees as $fee) {
+            foreach ($items as $i => $item) {
                 FeeInvoiceItem::create([
                     'fee_invoice_id' => $invoice->id,
-                    'fee_label_id'   => $fee->fee_label_id,
-                    'label_name'     => $fee->feeLabel->name,
-                    'amount'         => $fee->amount,
+                    'label'          => $item->label,
+                    'amount'         => $item->amount,
+                    'sort_order'     => $i,
                 ]);
             }
 
@@ -135,19 +131,21 @@ class FeeService
     }
 
     /**
-     * Generate monthly invoices for ALL active students in a campus.
-     * Called from the admin dashboard button.
-     * Returns summary: ['generated' => N, 'skipped' => N, 'errors' => [...]]
+     * Bulk generate invoices for all active students in a campus who have a scheduler.
+     * Returns ['generated' => N, 'skipped' => N, 'errors' => [...]]
      */
-    public function generateMonthlyInvoicesForCampus(
+    public function bulkGenerate(
         int    $campusId,
-        string $academicYear,
         int    $month,
         int    $year,
-        string $dueDate
+        string $dueDate,
+        float  $outstanding = 0,
+        float  $fine        = 0,
+        float  $discount    = 0
     ): array {
         $students = Student::where('campus_id', $campusId)
             ->where('status', 'active')
+            ->whereHas('schedulerAssignment')
             ->get();
 
         $generated = 0;
@@ -157,21 +155,12 @@ class FeeService
         foreach ($students as $student) {
             try {
                 $this->generateInvoice(
-                    $student,
-                    $academicYear,
-                    'monthly',
-                    $year,
-                    $month,
-                    null,
-                    $dueDate
+                    $student, $month, $year, $dueDate,
+                    $outstanding, $fine, $discount
                 );
                 $generated++;
             } catch (\Exception $e) {
-                // "already exists" = skip silently
                 if (str_contains($e->getMessage(), 'already exists')) {
-                    $skipped++;
-                } elseif (str_contains($e->getMessage(), 'No active')) {
-                    // Student has no monthly fees — skip silently
                     $skipped++;
                 } else {
                     $errors[] = $student->full_name . ': ' . $e->getMessage();
@@ -189,7 +178,7 @@ class FeeService
     {
         return DB::transaction(function () use ($invoice, $data) {
             $payment = FeePayment::create([
-                'receipt_number' => $this->generateReceiptNumber(),
+                'receipt_number' => $this->nextReceiptNumber(),
                 'fee_invoice_id' => $invoice->id,
                 'student_id'     => $invoice->student_id,
                 'campus_id'      => $invoice->campus_id,
@@ -207,13 +196,13 @@ class FeeService
         });
     }
 
-    private function generateInvoiceNumber(): string
+    private function nextInvoiceNumber(): string
     {
         $last = FeeInvoice::max('id') ?? 0;
         return 'INV-' . date('Y') . '-' . str_pad($last + 1, 5, '0', STR_PAD_LEFT);
     }
 
-    private function generateReceiptNumber(): string
+    private function nextReceiptNumber(): string
     {
         $last = FeePayment::max('id') ?? 0;
         return 'RCP-' . date('Y') . '-' . str_pad($last + 1, 5, '0', STR_PAD_LEFT);

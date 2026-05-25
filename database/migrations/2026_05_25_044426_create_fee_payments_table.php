@@ -13,14 +13,14 @@ return new class extends Migration
     {
         Schema::create('fee_payments', function (Blueprint $table) {
             $table->id();
-              $table->string('receipt_number')->unique();
+            $table->string('receipt_number')->unique();
             $table->foreignId('fee_invoice_id')->constrained()->onDelete('cascade');
             $table->foreignId('student_id')->constrained()->onDelete('cascade');
             $table->foreignId('campus_id')->constrained()->onDelete('cascade');
             $table->decimal('amount', 10, 2);
             $table->enum('method', ['cash', 'bank_transfer', 'cheque', 'online'])->default('cash');
             $table->date('payment_date');
-            $table->string('reference')->nullable();   // cheque/transfer ref
+            $table->string('reference')->nullable();
             $table->string('collected_by')->nullable();
             $table->text('remarks')->nullable();
             $table->timestamps();

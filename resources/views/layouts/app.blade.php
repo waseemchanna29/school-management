@@ -80,27 +80,27 @@
                         class="sidebar-nav-link {{ request()->routeIs('admin.subjects.*') ? 'active' : '' }}">
                         <i class="fas fa-book"></i> Subjects
                     </a>
-                    <a href="{{ route('admin.timetable.periods.index') }}"
-                        class="sidebar-nav-link {{ request()->routeIs('admin.timetable.periods.*') ? 'active' : '' }}">
-                        <i class="fas fa-clock"></i> Time Periods
-                    </a>
                     <a href="{{ route('admin.timetable.index') }}"
-                        class="sidebar-nav-link {{ request()->routeIs('admin.timetable.*') && !request()->routeIs('admin.timetable.periods.*') ? 'active' : '' }}">
+                        class="sidebar-nav-link {{ request()->routeIs('admin.timetable.*') ? 'active' : '' }}">
                         <i class="fas fa-calendar-alt"></i> Timetables
                     </a>
                     {{-- Add this inside the admin (non-super-admin) nav section, after Academics --}}
                     <span class="sidebar-nav-label">Finance</span>
-                    <a href="{{ route('admin.fee.labels.index') }}"
-                        class="sidebar-nav-link {{ request()->routeIs('admin.fee.labels.*') ? 'active' : '' }}">
-                        <i class="fas fa-tags"></i> Fee Labels
-                    </a>
-                    <a href="{{ route('admin.fee.structures.index') }}"
-                        class="sidebar-nav-link {{ request()->routeIs('admin.fee.structures.*') ? 'active' : '' }}">
-                        <i class="fas fa-file-invoice-dollar"></i> Fee Structures
+                    <a href="{{ route('admin.fee.schedulers.index') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.fee.schedulers.*') ? 'active' : '' }}">
+                        <i class="fas fa-file-invoice-dollar"></i> Fee Schedulers
                     </a>
                     <a href="{{ route('admin.fee.invoices.index') }}"
                         class="sidebar-nav-link {{ request()->routeIs('admin.fee.invoices.*') ? 'active' : '' }}">
                         <i class="fas fa-receipt"></i> Invoices
+                    </a>
+                    <a href="{{ route('admin.fee.invoices.bulk') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.fee.invoices.bulk') ? 'active' : '' }}">
+                        <i class="fas fa-bolt"></i> Bulk Generate
+                    </a>
+                    <a href="{{ route('admin.fee.settings') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.fee.settings*') ? 'active' : '' }}">
+                        <i class="fas fa-cog"></i> Fee Settings
                     </a>
                 @endif
             </nav>

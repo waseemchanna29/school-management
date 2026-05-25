@@ -22,7 +22,7 @@
             </div>
         </div>
         <div class="d-flex gap-2">
-            {{-- Add inside the action buttons div at the top --}}
+            {{-- Add inside the d-flex gap-2 div at the top of the page --}}
             <a href="{{ route('admin.timetable.teacher-view', $teacher) }}" class="btn-outline-primary btn btn-sm">
                 <i class="fas fa-calendar-alt"></i> Schedule
             </a>

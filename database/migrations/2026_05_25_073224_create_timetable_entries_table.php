@@ -13,17 +13,16 @@ return new class extends Migration
     {
         Schema::create('timetable_entries', function (Blueprint $table) {
             $table->id();
-           $table->foreignId('timetable_id')->constrained()->onDelete('cascade');
-            $table->foreignId('period_template_id')->constrained()->onDelete('cascade');
-            $table->enum('day', ['Mon','Tue','Wed','Thu','Fri','Sat']);
-            $table->enum('type', ['lesson','break','free'])->default('free');
+            $table->foreignId('timetable_id')->constrained()->onDelete('cascade');
+            $table->foreignId('timetable_period_id')->constrained('timetable_periods')->onDelete('cascade');
+            $table->enum('day', ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
+            $table->enum('type', ['lesson', 'break', 'free'])->default('free');
             $table->foreignId('subject_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('teacher_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('custom_label')->nullable();   // for breaks: "Lunch", "Prayer"
+            $table->string('custom_label')->nullable();
             $table->timestamps();
 
-            $table->unique(['timetable_id','period_template_id','day'], 'unique_slot');
-  
+            $table->unique(['timetable_id', 'timetable_period_id', 'day'], 'unique_entry');
         });
     }
 
