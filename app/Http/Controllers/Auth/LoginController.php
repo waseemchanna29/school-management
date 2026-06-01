@@ -33,24 +33,14 @@ class LoginController extends Controller
             ->onlyInput('email');
     }
 
-    private function redirectByRole()
-    {
-        $user = Auth::user();
+   private function redirectByRole()
+{
+    $user = Auth::user();
 
-        if ($user->isSuperAdmin()) {
-            return redirect()->route('super.dashboard');
-        }
+    if ($user->isSuperAdmin()) return redirect()->route('super.dashboard');
+    if ($user->isAdmin())      return redirect()->route('campus.select');
+    if ($user->isTeacher())    return redirect()->route('teacher.dashboard');
 
-        if ($user->isAdmin()) {
-            // If admin has exactly one campus, auto-select it
-            $campuses = $user->campuses()->where('is_active', true)->get();
-            if ($campuses->count() === 1) {
-                CampusContext::set($campuses->first()->id);
-                return redirect()->route('admin.dashboard');
-            }
-            return redirect()->route('campus.select');
-        }
-
-        return redirect()->route('admin.dashboard');
-    }
+    return redirect()->route('login');
+}
 }

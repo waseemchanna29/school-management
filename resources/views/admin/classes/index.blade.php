@@ -78,10 +78,10 @@
                                         onclick="openEditClass({{ $class->id }}, '{{ addslashes($class->name) }}', '{{ addslashes($class->grade_level) }}')">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <form action="{{ route('admin.classes.destroy', $class) }}" method="POST" style="display:inline;">
+                                <form action="{{ route('admin.classes.destroy', $class) }}" method="POST" style="display:inline;" data-confirm="Delete this?" data-type="danger" data-title="Delete">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="btn-outline-danger btn btn-sm"
-                                            onclick="return confirm('Delete {{ addslashes($class->name) }}?')">
+                                           >
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </form>

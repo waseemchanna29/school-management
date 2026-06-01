@@ -84,10 +84,9 @@
                             <div style="font-size:0.77rem; color:var(--text-muted);">{{ $admin->email }}</div>
                         </div>
                     </div>
-                    <form action="{{ route('super.campuses.remove-admin', [$campus, $admin]) }}" method="POST">
+                    <form action="{{ route('super.campuses.remove-admin', [$campus, $admin]) }}" method="POST"  data-confirm="Remove {{ addslashes($admin->name) }} from this campus?')" data-type="danger" data-title="Delete">
                         @csrf @method('DELETE')
                         <button type="submit" class="btn-outline-danger btn btn-sm"
-                                onclick="return confirm('Remove {{ addslashes($admin->name) }} from this campus?')"
                                 style="padding:0.25rem 0.6rem;">
                             <i class="fas fa-times"></i>
                         </button>
@@ -129,13 +128,13 @@
                 </div>
             </div>
             <div class="card-body">
-                <form action="{{ route('super.campuses.destroy', $campus) }}" method="POST">
+                <form action="{{ route('super.campuses.destroy', $campus) }}" method="POST"  data-confirm="Permanently delete {{ addslashes($campus->name) }}?" data-type="danger" data-title="Delete">
                     @csrf @method('DELETE')
                     <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.8rem;">
                         Cannot delete if campus has students or teachers.
                     </p>
                     <button type="submit" class="btn-block btn btn-danger"
-                            onclick="return confirm('Permanently delete {{ addslashes($campus->name) }}?')">
+                          >
                         <i class="fas fa-trash-alt"></i> Delete Campus
                     </button>
                 </form>

@@ -1062,3 +1062,204 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     .pos-wrapper    { max-width: 100%; }
     .pos-copy       { border-color: #ccc; }
 }
+
+/* ===========================
+   CUSTOM ALERT / CONFIRM BOX
+   =========================== */
+
+.sms-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 37, 64, 0.55);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.sms-overlay.active { opacity: 1; }
+
+.sms-box {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: 0 20px 60px rgba(15,37,64,0.25);
+    padding: 2rem;
+    width: 100%;
+    max-width: 420px;
+    transform: translateY(-16px) scale(0.97);
+    transition: transform 0.22s ease, opacity 0.22s ease;
+    opacity: 0;
+}
+
+.sms-overlay.active .sms-box {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+.sms-icon-wrap {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin: 0 auto 1rem;
+}
+
+.sms-icon-wrap.success { background: rgba(25,135,84,0.12);  color: var(--success); }
+.sms-icon-wrap.danger  { background: rgba(220,53,69,0.12);  color: var(--danger); }
+.sms-icon-wrap.warning { background: rgba(255,193,7,0.13);  color: #7a5800; }
+.sms-icon-wrap.info    { background: rgba(37,99,168,0.11);  color: var(--primary); }
+
+.sms-title {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    color: var(--primary);
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.sms-message {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+.sms-actions {
+    display: flex;
+    gap: 0.7rem;
+    justify-content: center;
+}
+
+.sms-actions .btn { min-width: 100px; justify-content: center; }
+
+/* ===========================
+   ATTENDANCE MODULE
+   =========================== */
+
+.att-status-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.38rem 0.9rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all var(--transition);
+    font-family: var(--font-main);
+    background: var(--light-bg);
+    color: var(--text-muted);
+    border-color: var(--border);
+}
+
+.att-status-btn.selected-present {
+    background: rgba(25,135,84,0.12);
+    color: var(--success);
+    border-color: var(--success);
+}
+
+.att-status-btn.selected-absent {
+    background: rgba(220,53,69,0.12);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+.att-status-btn.selected-late {
+    background: rgba(255,193,7,0.14);
+    color: #7a5800;
+    border-color: var(--warning);
+}
+
+.att-status-btn.selected-leave {
+    background: rgba(13,202,240,0.12);
+    color: #055160;
+    border-color: var(--info);
+}
+
+.att-student-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    transition: background var(--transition);
+}
+
+.att-student-row:hover { background: var(--light-bg); }
+.att-student-row:last-child { border-bottom: none; }
+
+.att-student-name {
+    flex: 1;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+}
+
+.att-student-roll {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    display: block;
+}
+
+.att-status-group {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.att-summary-pills {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.att-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.att-pill.present { background: rgba(25,135,84,0.12);  color: var(--success); }
+.att-pill.absent  { background: rgba(220,53,69,0.12);  color: var(--danger); }
+.att-pill.late    { background: rgba(255,193,7,0.14);  color: #7a5800; }
+.att-pill.leave   { background: rgba(13,202,240,0.12); color: #055160; }
+
+/* Attendance % bar */
+.att-progress-bar-wrap {
+    height: 8px;
+    background: var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    width: 120px;
+}
+
+.att-progress-bar-fill {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.4s ease;
+}
+
+/* Teacher panel layout */
+.teacher-layout { display: flex; min-height: 100vh; }
+
+.teacher-sidebar {
+    width: var(--sidebar-width);
+    background: var(--primary-dark);
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}

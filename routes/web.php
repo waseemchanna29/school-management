@@ -19,6 +19,9 @@ use App\Http\Controllers\SuperAdmin\CampusController;
 use App\Http\Controllers\SuperAdmin\DashboardController as SuperDashboard;
 use App\Http\Controllers\Admin\Timetable\TimetableController;
 use App\Http\Controllers\Admin\Timetable\TimetablePeriodController;
+use App\Http\Controllers\Teacher\DashboardController as TeacherDashboard;
+use App\Http\Controllers\Teacher\AttendanceController as TeacherAttendance;
+use App\Http\Controllers\Admin\AttendanceController as AdminAttendance;
 use Illuminate\Support\Facades\Route;
 
 // Root redirect
@@ -73,6 +76,18 @@ Route::middleware(['auth', 'admin', 'campus_selected'])->prefix('admin')->name('
     Route::delete('/subjects/{subject}', [SubjectController::class, 'destroy'])->name('subjects.destroy');
 
     Route::post('/dashboard/generate-monthly-invoices', [DashboardController::class, 'generateMonthlyInvoices'])->name('dashboard.generate-monthly');
+
+    Route::post(
+        '/sections/{section}/assign-teacher',
+        [SectionController::class, 'assignClassTeacher']
+    )->name('sections.assign-teacher');
+
+    Route::prefix('attendance')->name('attendance.')->group(function () {
+        Route::get('/',                     [AdminAttendance::class, 'index'])->name('index');
+        Route::get('/report',               [AdminAttendance::class, 'report'])->name('report');
+        Route::get('/{session}',            [AdminAttendance::class, 'show'])->name('show');
+        Route::post('/{session}/unlock',    [AdminAttendance::class, 'unlock'])->name('unlock');
+    });
     // ─── Fee Management ──────────────────────────────────────────────────────────
     Route::prefix('fee')->name('fee.')->group(function () {
 
@@ -147,5 +162,22 @@ Route::middleware(['auth', 'admin', 'campus_selected'])->prefix('admin')->name('
             '/{timetable}/periods/reorder',
             [TimetablePeriodController::class, 'reorder']
         )->name('periods.reorder');
+    });
+});
+
+
+// ─── Teacher Panel ────────────────────────────────────────────────────────────
+Route::middleware(['auth', 'teacher'])->prefix('teacher')->name('teacher.')->group(function () {
+
+    Route::get('/dashboard', [TeacherDashboard::class, 'index'])->name('dashboard');
+
+    // Attendance
+    Route::prefix('attendance')->name('attendance.')->group(function () {
+        Route::get('/take',                    [TeacherAttendance::class, 'take'])->name('take');
+        Route::post('/save',                   [TeacherAttendance::class, 'save'])->name('save');
+        Route::post('/{session}/submit',       [TeacherAttendance::class, 'submit'])->name('submit');
+        Route::get('/history',                 [TeacherAttendance::class, 'history'])->name('history');
+        Route::get('/{session}',               [TeacherAttendance::class, 'show'])->name('show');
+        Route::get('/report/students',         [TeacherAttendance::class, 'studentReport'])->name('student-report');
     });
 });

@@ -69,10 +69,10 @@
                             <td><code style="font-size:0.82rem; background:var(--light-bg); padding:2px 8px; border-radius:4px;">{{ $subject->code }}</code></td>
                             <td>{{ $subject->schoolClass->name ?? '—' }}</td>
                             <td>
-                                <form action="{{ route('admin.subjects.destroy', $subject) }}" method="POST" style="display:inline;">
+                                <form action="{{ route('admin.subjects.destroy', $subject) }}" method="POST" style="display:inline;"  data-confirm="Delete subject {{ addslashes($subject->name) }}?" data-type="danger" data-title="Delete">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="btn-outline-danger btn btn-sm"
-                                            onclick="return confirm('Delete subject {{ addslashes($subject->name) }}?')">
+                                          >
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </form>

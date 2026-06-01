@@ -337,10 +337,9 @@
                                 <td>
                                     @if($invoice->status !== 'paid')
                                     <form action="{{ route('admin.fee.payments.destroy', $payment) }}"
-                                          method="POST" style="display:inline;">
+                                          method="POST" style="display:inline;" data-confirm="Reverse this payment?" data-type="danger" data-title="Delete">
                                         @csrf @method('DELETE')
-                                        <button type="submit" class="btn-outline-danger btn btn-sm"
-                                                onclick="return confirm('Reverse this payment?')">
+                                        <button type="submit" class="btn-outline-danger btn btn-sm">
                                             <i class="fas fa-undo"></i>
                                         </button>
                                     </form>

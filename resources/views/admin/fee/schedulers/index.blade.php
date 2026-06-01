@@ -97,10 +97,10 @@
                     </button>
                 </form>
                 <form action="{{ route('admin.fee.schedulers.destroy', $scheduler) }}"
-                      method="POST" style="display:inline;">
+                      method="POST" style="display:inline;" data-confirm="Delete \'{{ addslashes($scheduler->name) }}\" data-type="danger" data-title="Delete">
                     @csrf @method('DELETE')
                     <button type="submit" class="btn-outline-danger btn btn-sm"
-                            onclick="return confirm('Delete \'{{ addslashes($scheduler->name) }}\'?')">
+                           >
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </form>

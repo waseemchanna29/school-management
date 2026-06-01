@@ -84,6 +84,16 @@
                         class="sidebar-nav-link {{ request()->routeIs('admin.timetable.*') ? 'active' : '' }}">
                         <i class="fas fa-calendar-alt"></i> Timetables
                     </a>
+
+                    <span class="sidebar-nav-label">Attendance</span>
+                    <a href="{{ route('admin.attendance.index') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.attendance.index') ? 'active' : '' }}">
+                        <i class="fas fa-clipboard-check"></i> Attendance
+                    </a>
+                    <a href="{{ route('admin.attendance.report') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.attendance.report') ? 'active' : '' }}">
+                        <i class="fas fa-chart-bar"></i> Att. Report
+                    </a>
                     {{-- Add this inside the admin (non-super-admin) nav section, after Academics --}}
                     <span class="sidebar-nav-label">Finance</span>
                     <a href="{{ route('admin.fee.schedulers.index') }}"
@@ -177,6 +187,157 @@
         </main>
 
     </div>
+    {{-- ═══════════════════════════════════════════════════════════════
+     GLOBAL ALERT / CONFIRM BOX
+     Usage:
+       smsAlert('Message', 'success|danger|warning|info', 'Title')
+       smsConfirm('Are you sure?', callback, 'Title', 'danger')
+════════════════════════════════════════════════════════════════ --}}
+
+    <div id="sms-overlay" class="sms-overlay" role="dialog" aria-modal="true">
+        <div class="sms-box" id="sms-box">
+            <div class="sms-icon-wrap" id="sms-icon">
+                <i id="sms-icon-i" class="fas fa-info-circle"></i>
+            </div>
+            <div class="sms-title" id="sms-title">Notice</div>
+            <div class="sms-message" id="sms-message"></div>
+            <div class="sms-actions" id="sms-actions"></div>
+        </div>
+    </div>
+
+    <script>
+        // ── Core show/hide ────────────────────────────────────────────────────────────
+        function _smsShow() {
+            const ov = document.getElementById('sms-overlay');
+            ov.style.display = 'flex';
+            requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add('active')));
+            document.addEventListener('keydown', _smsEscHandler);
+        }
+
+        function _smsHide() {
+            const ov = document.getElementById('sms-overlay');
+            ov.classList.remove('active');
+            setTimeout(() => {
+                ov.style.display = 'none';
+            }, 230);
+            document.removeEventListener('keydown', _smsEscHandler);
+        }
+
+        function _smsEscHandler(e) {
+            if (e.key === 'Escape') _smsHide();
+        }
+        _smsHide();
+
+        function _smsSetType(type) {
+            const icons = {
+                success: 'fa-check-circle',
+                danger: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle',
+            };
+
+            const wrap = document.getElementById('sms-icon');
+            const icon = document.getElementById('sms-icon-i');
+
+            wrap.className = 'sms-icon-wrap ' + type;
+            icon.className = 'fas ' + (icons[type] || icons.info);
+        }
+
+        // ── Alert (one button) ────────────────────────────────────────────────────────
+        function smsAlert(message, type = 'info', title = null) {
+            const defaultTitles = {
+                success: 'Success',
+                danger: 'Error',
+                warning: 'Warning',
+                info: 'Notice',
+            };
+
+            document.getElementById('sms-title').textContent = title || defaultTitles[type] || 'Notice';
+            document.getElementById('sms-message').textContent = message;
+            _smsSetType(type);
+
+            const actions = document.getElementById('sms-actions');
+            actions.innerHTML = `
+        <button class="btn btn-primary" onclick="_smsHide()">
+            <i class="fas fa-check"></i> OK
+        </button>`;
+
+            _smsShow();
+        }
+
+        // ── Confirm (two buttons) ─────────────────────────────────────────────────────
+        function smsConfirm(message, onConfirm, title = 'Confirm Action', type = 'warning') {
+            document.getElementById('sms-title').textContent = title;
+            document.getElementById('sms-message').textContent = message;
+            _smsSetType(type);
+
+            const btnLabels = {
+                danger: {
+                    confirm: 'Yes, Delete',
+                    confirmClass: 'btn-danger'
+                },
+                warning: {
+                    confirm: 'Yes, Continue',
+                    confirmClass: 'btn-warning'
+                },
+                info: {
+                    confirm: 'Yes, Proceed',
+                    confirmClass: 'btn-primary'
+                },
+                success: {
+                    confirm: 'Yes',
+                    confirmClass: 'btn-success'
+                },
+            };
+
+            const labels = btnLabels[type] || btnLabels.warning;
+            const actions = document.getElementById('sms-actions');
+
+            actions.innerHTML = `
+        <button class="btn-outline-secondary btn" onclick="_smsHide()">
+            <i class="fas fa-times"></i> Cancel
+        </button>
+        <button class="btn ${labels.confirmClass}" id="sms-confirm-btn">
+            <i class="fas fa-check"></i> ${labels.confirm}
+        </button>`;
+
+            document.getElementById('sms-confirm-btn').addEventListener('click', function() {
+                _smsHide();
+                if (typeof onConfirm === 'function') onConfirm();
+                else if (typeof onConfirm === 'string') eval(onConfirm);
+            });
+
+            _smsShow();
+        }
+
+        // ── Replace all onclick="return confirm(...)" forms ───────────────────────────
+        document.addEventListener('DOMContentLoaded', function() {
+            // Intercept all forms with data-confirm attribute
+            document.querySelectorAll('form[data-confirm]').forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const msg = form.dataset.confirm || 'Are you sure?';
+                    const type = form.dataset.type || 'warning';
+                    const title = form.dataset.title || 'Confirm Action';
+                    smsConfirm(msg, () => form.submit(), title, type);
+                });
+            });
+
+            // Flash messages from Laravel session — show as smsAlert
+            @if (session('success'))
+                smsAlert(@json(session('success')), 'success');
+            @endif
+            @if (session('error'))
+                smsAlert(@json(session('error')), 'danger');
+            @endif
+            @if (session('warning'))
+                smsAlert(@json(session('warning')), 'warning');
+            @endif
+            @if (session('info'))
+                smsAlert(@json(session('info')), 'info');
+            @endif
+        });
+    </script>
 </body>
 
 </html>

@@ -30,10 +30,10 @@
                              style="max-height:60px; border:1px solid var(--border);
                                     border-radius:var(--radius-sm); padding:4px;">
                         <form action="{{ route('admin.fee.settings.remove-logo') }}"
-                              method="POST" style="display:inline;">
+                              method="POST" style="display:inline;" data-confirm="Remove Logo?" data-type="danger" data-title="Delete">
                             @csrf @method('DELETE')
                             <button type="submit" class="btn-outline-danger btn btn-sm"
-                                    onclick="return confirm('Remove logo?')">
+                                   >
                                 <i class="fas fa-trash-alt"></i> Remove
                             </button>
                         </form>

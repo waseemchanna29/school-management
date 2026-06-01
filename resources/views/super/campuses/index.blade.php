@@ -57,10 +57,10 @@
                             <a href="{{ route('super.campuses.edit', $campus) }}" class="btn-outline-primary btn btn-sm">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <form action="{{ route('super.campuses.destroy', $campus) }}" method="POST" style="display:inline;">
+                            <form action="{{ route('super.campuses.destroy', $campus) }}" method="POST" style="display:inline;" data-confirm="'Delete {{ addslashes($campus->name) }}?" data-type="danger" data-title="Delete">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="btn-outline-danger btn btn-sm"
-                                        onclick="return confirm('Delete {{ addslashes($campus->name) }}?')">
+                                      >
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </form>

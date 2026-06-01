@@ -110,12 +110,12 @@
                         <i class="fas fa-edit"></i>
                     </button>
                     <form action="{{ route('admin.timetable.periods.destroy', [$timetable, $period]) }}"
-                          method="POST" style="display:inline;">
+                          method="POST" style="display:inline;" data-confirm="Remove period \'{{ addslashes($period->label) }}\'?" data-type="danger" data-title="Delete">
                         @csrf @method('DELETE')
                         <button type="submit"
                                 class="btn-outline-danger btn btn-sm"
                                 style="padding:0.2rem 0.5rem;"
-                                onclick="return confirm('Remove period \'{{ addslashes($period->label) }}\'?')">
+                               >
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     </form>

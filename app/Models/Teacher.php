@@ -55,4 +55,14 @@ class Teacher extends Model
     {
         return $this->date_of_birth->diffInYears(now());
     }
+
+    // Add inside Teacher model
+    public function classTeacherOf()
+    {
+        return $this->hasOne(Section::class, 'class_teacher_id');
+    }
+    public function attendanceSessions()
+    {
+        return $this->hasMany(AttendanceSession::class);
+    }
 }

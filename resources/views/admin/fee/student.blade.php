@@ -88,10 +88,10 @@
                         <i class="fas fa-edit"></i>
                     </button>
                     <form action="{{ route('admin.fee.student.remove-item', $item) }}"
-                          method="POST" style="display:inline;">
+                          method="POST" style="display:inline;" data-confirm="Remove this line?" data-type="danger" data-title="Delete">
                         @csrf @method('DELETE')
                         <button type="submit" class="btn-outline-danger btn btn-sm"
-                                onclick="return confirm('Remove this fee line?')">
+                               >
                             <i class="fas fa-times"></i>
                         </button>
                     </form>

@@ -54,10 +54,10 @@
                             <a href="{{ route('super.admins.edit', $admin) }}" class="btn-outline-primary btn btn-sm">
                                 <i class="fas fa-edit"></i> Edit
                             </a>
-                            <form action="{{ route('super.admins.destroy', $admin) }}" method="POST" style="display:inline;">
+                            <form action="{{ route('super.admins.destroy', $admin) }}" method="POST" style="display:inline;" data-confirm="Remove {{ addslashes($admin->name) }}?" data-type="danger" data-title="Delete">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="btn-outline-danger btn btn-sm"
-                                        onclick="return confirm('Remove {{ addslashes($admin->name) }}?')">
+                                      >
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </form>

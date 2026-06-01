@@ -81,10 +81,10 @@
                         <div class="d-flex gap-1">
                             <a href="{{ route('admin.teachers.show', $teacher) }}" class="btn-outline-primary btn btn-sm"><i class="fas fa-eye"></i></a>
                             <a href="{{ route('admin.teachers.edit', $teacher) }}" class="btn-outline-primary btn btn-sm"><i class="fas fa-edit"></i></a>
-                            <form action="{{ route('admin.teachers.destroy', $teacher) }}" method="POST" style="display:inline;">
+                            <form action="{{ route('admin.teachers.destroy', $teacher) }}" method="POST" style="display:inline;" data-confirm="Remove {{ addslashes($teacher->full_name) }}?" data-type="danger" data-title="Delete">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="btn-outline-danger btn btn-sm"
-                                        onclick="return confirm('Remove {{ addslashes($teacher->full_name) }}?')">
+                                       >
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </form>

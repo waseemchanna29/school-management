@@ -127,10 +127,10 @@
                                 </button>
                             </form>
                             <form action="{{ route('admin.timetable.destroy', $tt) }}"
-                                  method="POST" style="display:inline;">
+                                  method="POST" style="display:inline;" data-confirm="Delete this timetable?" data-type="danger" data-title="Delete">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="btn-outline-danger btn btn-sm"
-                                        onclick="return confirm('Delete this timetable?')">
+                                        >
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </form>

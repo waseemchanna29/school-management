@@ -6,6 +6,7 @@ use App\Helpers\CampusContext;
 use App\Http\Controllers\Controller;
 use App\Models\SchoolClass;
 use App\Models\Section;
+use App\Models\Teacher;
 use Illuminate\Http\Request;
 
 class SectionController extends Controller
@@ -14,10 +15,17 @@ class SectionController extends Controller
     {
         $campusId = CampusContext::id();
         $sections = Section::where('campus_id', $campusId)
-            ->with('schoolClass')->withCount('students')->latest()->get();
+            ->with(['schoolClass', 'students', 'classTeacher'])
+            ->withCount('students')
+            ->latest()->get();
+
         $classes  = SchoolClass::where('campus_id', $campusId)
             ->where('is_active', true)->orderBy('name')->get();
-        return view('admin.sections.index', compact('sections', 'classes'));
+
+        $teachers = Teacher::where('campus_id', $campusId)
+            ->where('is_active', true)->orderBy('full_name')->get();
+
+        return view('admin.sections.index', compact('sections', 'classes', 'teachers'));
     }
 
     public function store(Request $request)
@@ -35,6 +43,31 @@ class SectionController extends Controller
         ]);
 
         return back()->with('success', 'Section added.');
+    }
+
+    public function assignClassTeacher(Request $request, Section $section)
+    {
+        if ($section->campus_id !== CampusContext::id()) abort(403);
+
+        $request->validate([
+            'class_teacher_id' => ['nullable', 'exists:teachers,id'],
+        ]);
+
+        // Remove this teacher from any other section they are class teacher of
+        if ($request->class_teacher_id) {
+            Section::where('campus_id', CampusContext::id())
+                ->where('class_teacher_id', $request->class_teacher_id)
+                ->where('id', '!=', $section->id)
+                ->update(['class_teacher_id' => null]);
+        }
+
+        $section->update(['class_teacher_id' => $request->class_teacher_id]);
+
+        $msg = $request->class_teacher_id
+            ? 'Class teacher assigned successfully.'
+            : 'Class teacher removed from section.';
+
+        return back()->with('success', $msg);
     }
 
     public function destroy(Section $section)

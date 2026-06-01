@@ -91,4 +91,10 @@ class Student extends Model
     {
         return $this->hasMany(FeeInvoice::class);
     }
+
+    // Add inside Student model
+    public function attendanceRecords()
+    {
+        return $this->hasMany(AttendanceRecord::class);
+    }
 }

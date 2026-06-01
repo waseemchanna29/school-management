@@ -132,13 +132,13 @@
                         Danger Zone</div>
                 </div>
                 <div class="card-body">
-                    <form action="{{ route('admin.teachers.destroy', $teacher) }}" method="POST">
+                    <form action="{{ route('admin.teachers.destroy', $teacher) }}" method="POST" data-confirm="Permanently remove {{ addslashes($teacher->full_name) }}?" data-type="danger" data-title="Delete">
                         @csrf @method('DELETE')
                         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.8rem;">
                             This will permanently delete the teacher and their login account.
                         </p>
                         <button type="submit" class="btn-block btn btn-danger"
-                            onclick="return confirm('Permanently remove {{ addslashes($teacher->full_name) }}?')">
+                            >
                             <i class="fas fa-trash-alt"></i> Remove Teacher
                         </button>
                     </form>
