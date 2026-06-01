@@ -1263,3 +1263,197 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     flex-direction: column;
     overflow-y: auto;
 }
+
+/* ===========================
+   PERFORMANCE / GRADING MODULE
+   =========================== */
+
+/* Grade badge — dynamic color from grade item */
+.grade-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    padding: 0.28rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+}
+
+/* Performance score bar */
+.perf-bar-wrap {
+    height: 10px;
+    background: var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    min-width: 100px;
+}
+
+.perf-bar-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.5s ease;
+}
+
+/* Marks entry table */
+.marks-table { width: 100%; border-collapse: collapse; }
+
+.marks-table thead th {
+    background: var(--primary);
+    color: var(--white);
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.7rem 1rem;
+    border: 1px solid rgba(255,255,255,0.12);
+    white-space: nowrap;
+}
+
+.marks-table tbody tr { border-bottom: 1px solid var(--border); transition: background var(--transition); }
+.marks-table tbody tr:hover { background: var(--light-bg); }
+.marks-table tbody td { padding: 0.6rem 1rem; vertical-align: middle; }
+
+.marks-input {
+    width: 90px;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 700;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.5rem;
+    font-family: var(--font-main);
+    transition: border-color var(--transition), box-shadow var(--transition);
+    color: var(--text-dark);
+}
+
+.marks-input:focus {
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 3px rgba(37,99,168,0.12);
+    outline: none;
+}
+
+.marks-input.mark-high  { border-color: var(--success); color: var(--success); }
+.marks-input.mark-mid   { border-color: var(--warning);  color: #7a5800; }
+.marks-input.mark-low   { border-color: var(--danger);   color: var(--danger); }
+
+/* Grade scale editor */
+.grade-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--white);
+    transition: background var(--transition);
+}
+
+.grade-row:hover { background: var(--light-bg); }
+.grade-row:last-child { border-bottom: none; }
+
+.grade-color-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Weight donut indicator */
+.weight-bar {
+    height: 6px;
+    border-radius: 6px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+/* Subject card for teacher */
+.subject-perf-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.subject-perf-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.subject-perf-card-top {
+    padding: 1.1rem 1.3rem;
+    border-bottom: 1px solid var(--border);
+    border-left: 4px solid var(--primary-light);
+}
+
+.subject-perf-card-body { padding: 0.9rem 1.3rem; }
+
+/* Report card style */
+.report-card-header {
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+    color: var(--white);
+    padding: 1.5rem 1.8rem;
+    border-radius: var(--radius) var(--radius) 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.report-card-title {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    color: var(--white);
+    margin-bottom: 3px;
+}
+
+.report-overall-grade {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: var(--accent-light);
+    line-height: 1;
+}
+
+.report-overall-pct {
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.7);
+}
+
+/* Term tabs */
+.term-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 1.4rem;
+}
+
+.term-tab {
+    padding: 0.65rem 1.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all var(--transition);
+    text-decoration: none;
+    display: inline-block;
+    font-family: var(--font-main);
+}
+
+.term-tab:hover  { color: var(--primary); }
+.term-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+@media print {
+    .no-print { display: none !important; }
+    .portal-sidebar, .portal-topbar { display: none !important; }
+    .portal-main { margin-left: 0 !important; }
+    .portal-content { padding: 0 !important; }
+    .card { box-shadow: none !important; border: 1px solid #ccc !important; }
+}

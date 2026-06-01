@@ -41,6 +41,11 @@
         </div>
     </div>
 
+    {{-- Performance tab link in the action buttons --}}
+    <a href="{{ route('admin.performance.student-report', $student) }}" class="btn-outline-primary btn btn-sm">
+        <i class="fas fa-chart-line"></i> Performance
+    </a>
+    
     <div class="row">
         <div class="col-8">
             <!-- Personal Info -->
@@ -210,13 +215,14 @@
                             class="fas fa-exclamation-triangle"></i> Danger Zone</div>
                 </div>
                 <div class="card-body">
-                    <form action="{{ route('admin.students.destroy', $student) }}" method="POST"  data-confirm="Permanently remove {{ addslashes($student->full_name) }}?" data-type="danger" data-title="Delete">
+                    <form action="{{ route('admin.students.destroy', $student) }}" method="POST"
+                        data-confirm="Permanently remove {{ addslashes($student->full_name) }}?" data-type="danger"
+                        data-title="Delete">
                         @csrf @method('DELETE')
                         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.8rem;">
                             Permanently removes student and login account.
                         </p>
-                        <button type="submit" class="btn-block btn btn-danger"
-                          >
+                        <button type="submit" class="btn-block btn btn-danger">
                             <i class="fas fa-trash-alt"></i> Remove Student
                         </button>
                     </form>

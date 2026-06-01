@@ -13,6 +13,14 @@ return new class extends Migration
     {
         Schema::create('grade_items', function (Blueprint $table) {
             $table->id();
+             $table->foreignId('grade_scale_id')->constrained()->onDelete('cascade');
+            $table->string('grade');            // A+, A, B, C, D, F
+            $table->unsignedTinyInteger('min_marks');
+            $table->unsignedTinyInteger('max_marks');
+            $table->decimal('gpa', 3, 2)->default(0.00);
+            $table->string('description')->nullable(); // Excellent, Very Good...
+            $table->string('color')->nullable();       // hex color for UI badge
+            $table->unsignedSmallInteger('sort_order')->default(0);
             $table->timestamps();
         });
     }

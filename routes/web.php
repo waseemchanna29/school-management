@@ -22,6 +22,11 @@ use App\Http\Controllers\Admin\Timetable\TimetablePeriodController;
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboard;
 use App\Http\Controllers\Teacher\AttendanceController as TeacherAttendance;
 use App\Http\Controllers\Admin\AttendanceController as AdminAttendance;
+use App\Http\Controllers\SuperAdmin\GradeScaleController as SuperGradeScale;
+use App\Http\Controllers\SuperAdmin\ExamWeightController as SuperExamWeight;
+use App\Http\Controllers\Admin\GradeScaleController as AdminGradeScale;
+use App\Http\Controllers\Admin\PerformanceController as AdminPerformance;
+use App\Http\Controllers\Teacher\PerformanceController as TeacherPerformance;
 use Illuminate\Support\Facades\Route;
 
 // Root redirect
@@ -53,6 +58,20 @@ Route::middleware(['auth', 'super_admin'])->prefix('super')->name('super.')->gro
 
     // Admin Users
     Route::resource('admins', AdminUserController::class)->except('show');
+
+    Route::prefix('grading')->name('grading.')->group(function () {
+        Route::get('/',                        [SuperGradeScale::class, 'index'])->name('index');
+        Route::get('/create',                  [SuperGradeScale::class, 'create'])->name('create');
+        Route::post('/',                       [SuperGradeScale::class, 'store'])->name('store');
+        Route::get('/{gradeScale}/edit',       [SuperGradeScale::class, 'edit'])->name('edit');
+        Route::put('/{gradeScale}',            [SuperGradeScale::class, 'update'])->name('update');
+        Route::delete('/{gradeScale}',         [SuperGradeScale::class, 'destroy'])->name('destroy');
+
+        Route::get('/weights',                 [SuperExamWeight::class, 'index'])->name('weights');
+        Route::post('/weights',                [SuperExamWeight::class, 'store'])->name('weights.store');
+        Route::put('/weights/{examTypeWeight}', [SuperExamWeight::class, 'update'])->name('weights.update');
+        Route::delete('/weights/{examTypeWeight}', [SuperExamWeight::class, 'destroy'])->name('weights.destroy');
+    });
 });
 
 // ─── Admin (campus-scoped) ────────────────────────────────────────────────────
@@ -163,6 +182,22 @@ Route::middleware(['auth', 'admin', 'campus_selected'])->prefix('admin')->name('
             [TimetablePeriodController::class, 'reorder']
         )->name('periods.reorder');
     });
+
+    Route::prefix('grading')->name('grading.')->group(function () {
+        Route::get('/',                          [AdminGradeScale::class, 'index'])->name('index');
+        Route::post('/copy-scale',               [AdminGradeScale::class, 'copyGlobalScale'])->name('copy-scale');
+        Route::get('/{gradeScale}/edit',         [AdminGradeScale::class, 'edit'])->name('edit');
+        Route::put('/{gradeScale}',              [AdminGradeScale::class, 'update'])->name('update');
+        Route::delete('/{gradeScale}',           [AdminGradeScale::class, 'destroyScale'])->name('destroy');
+        Route::post('/copy-weights',             [AdminGradeScale::class, 'copyGlobalWeights'])->name('copy-weights');
+        Route::put('/weights/{weight}',          [AdminGradeScale::class, 'updateWeight'])->name('weights.update');
+    });
+
+    Route::prefix('performance')->name('performance.')->group(function () {
+        Route::get('/',                          [AdminPerformance::class, 'index'])->name('index');
+        Route::get('/class-report',              [AdminPerformance::class, 'classReport'])->name('class-report');
+        Route::get('/student/{student}',         [AdminPerformance::class, 'studentReport'])->name('student-report');
+    });
 });
 
 
@@ -179,5 +214,12 @@ Route::middleware(['auth', 'teacher'])->prefix('teacher')->name('teacher.')->gro
         Route::get('/history',                 [TeacherAttendance::class, 'history'])->name('history');
         Route::get('/{session}',               [TeacherAttendance::class, 'show'])->name('show');
         Route::get('/report/students',         [TeacherAttendance::class, 'studentReport'])->name('student-report');
+    });
+
+    Route::prefix('performance')->name('performance.')->group(function () {
+        Route::get('/subjects',                  [TeacherPerformance::class, 'subjects'])->name('subjects');
+        Route::get('/marks/{subject}',           [TeacherPerformance::class, 'enterMarks'])->name('enter-marks');
+        Route::post('/marks/{subject}',          [TeacherPerformance::class, 'saveMarks'])->name('save-marks');
+        Route::get('/history',                   [TeacherPerformance::class, 'history'])->name('history');
     });
 });

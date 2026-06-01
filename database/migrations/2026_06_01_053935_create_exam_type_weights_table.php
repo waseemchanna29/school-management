@@ -13,6 +13,15 @@ return new class extends Migration
     {
         Schema::create('exam_type_weights', function (Blueprint $table) {
             $table->id();
+             $table->foreignId('campus_id')
+                  ->nullable()    // null = global default
+                  ->constrained('campuses')
+                  ->nullOnDelete();
+            $table->string('exam_type');         // class_test, quiz, mid_term, final, assignment
+            $table->string('label');             // "Class Test", "Quiz", "Mid Term Exam", etc.
+            $table->decimal('weight', 5, 2);     // percentage e.g. 50.00 = 50%
+            $table->boolean('is_active')->default(true);
+            $table->unsignedSmallInteger('sort_order')->default(0);
             $table->timestamps();
         });
     }

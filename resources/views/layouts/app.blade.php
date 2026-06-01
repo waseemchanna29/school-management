@@ -50,6 +50,14 @@
                         class="sidebar-nav-link {{ request()->routeIs('super.admins.*') ? 'active' : '' }}">
                         <i class="fas fa-user-shield"></i> Admin Users
                     </a>
+                    <a href="{{ route('super.grading.index') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('super.grading.*') ? 'active' : '' }}">
+                        <i class="fas fa-star-half-alt"></i> Grading System
+                    </a>
+                    <a href="{{ route('super.grading.weights') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('super.grading.weights') ? 'active' : '' }}">
+                        <i class="fas fa-balance-scale"></i> Exam Weights
+                    </a>
                 @else
                     <span class="sidebar-nav-label">Main</span>
                     <a href="{{ route('admin.dashboard') }}"
@@ -85,6 +93,19 @@
                         <i class="fas fa-calendar-alt"></i> Timetables
                     </a>
 
+                    <span class="sidebar-nav-label">Performance</span>
+                    <a href="{{ route('admin.performance.index') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.performance.index') ? 'active' : '' }}">
+                        <i class="fas fa-chart-line"></i> Marks & Grades
+                    </a>
+                    <a href="{{ route('admin.performance.class-report') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.performance.class-report') ? 'active' : '' }}">
+                        <i class="fa-table fas"></i> Class Report
+                    </a>
+                    <a href="{{ route('admin.grading.index') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.grading.*') ? 'active' : '' }}">
+                        <i class="fas fa-star-half-alt"></i> Grading System
+                    </a>
                     <span class="sidebar-nav-label">Attendance</span>
                     <a href="{{ route('admin.attendance.index') }}"
                         class="sidebar-nav-link {{ request()->routeIs('admin.attendance.index') ? 'active' : '' }}">
@@ -160,7 +181,8 @@
 
             <div class="portal-content">
                 @if (session('success'))
-                    <div class="alert alert-success"><i class="fas fa-check-circle"></i> {{ session('success') }}</div>
+                    <div class="alert alert-success"><i class="fas fa-check-circle"></i> {{ session('success') }}
+                    </div>
                 @endif
                 @if (session('error'))
                     <div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> {{ session('error') }}
