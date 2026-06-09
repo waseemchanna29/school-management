@@ -27,6 +27,10 @@ use App\Http\Controllers\SuperAdmin\ExamWeightController as SuperExamWeight;
 use App\Http\Controllers\Admin\GradeScaleController as AdminGradeScale;
 use App\Http\Controllers\Admin\PerformanceController as AdminPerformance;
 use App\Http\Controllers\Teacher\PerformanceController as TeacherPerformance;
+use App\Http\Controllers\AcademicYearSelectController;
+use App\Http\Controllers\Admin\AcademicYearController;
+use App\Http\Controllers\Admin\EnrollmentController;
+
 use Illuminate\Support\Facades\Route;
 
 // Root redirect
@@ -40,11 +44,18 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/logout', [LogoutController::class, 'logout'])->name('logout')->middleware('auth');
 
+
+
 // ─── Campus Selection (admin only) ──────────────────────────────────────────
 Route::middleware(['auth', 'admin'])->group(function () {
+
     Route::get('/campus/select',   [CampusSelectController::class, 'show'])->name('campus.select');
     Route::post('/campus/select',  [CampusSelectController::class, 'select'])->name('campus.select.post');
     Route::get('/campus/switch',   [CampusSelectController::class, 'switchCampus'])->name('campus.switch');
+
+    Route::get('/academic-year/select',  [AcademicYearSelectController::class, 'show'])->name('academic-year.select');
+    Route::post('/academic-year/select', [AcademicYearSelectController::class, 'select'])->name('academic-year.select.post');
+    Route::get('/academic-year/switch',  [AcademicYearSelectController::class, 'switchYear'])->name('academic-year.switch');
 });
 
 // ─── Super Admin ─────────────────────────────────────────────────────────────
@@ -74,8 +85,49 @@ Route::middleware(['auth', 'super_admin'])->prefix('super')->name('super.')->gro
     });
 });
 
+
+// Academic year management itself does NOT have year_selected middleware
+// (admin needs to access it before selecting a year)
+// It only needs campus_selected:
+Route::middleware(['auth', 'admin', 'campus_selected'])
+    ->prefix('admin')->name('admin.')->group(function () {
+
+        Route::prefix('enrollment')->name('enrollment.')->group(function () {
+            Route::get('/',                      [EnrollmentController::class, 'index'])->name('index');
+            Route::get('/enroll',                [EnrollmentController::class, 'create'])->name('create');
+            Route::post('/enroll',               [EnrollmentController::class, 'store'])->name('store');
+            Route::get('/admission',             [EnrollmentController::class, 'admissionCreate'])->name('admission');
+            Route::post('/admission',            [EnrollmentController::class, 'admissionStore'])->name('admission.store');
+            Route::get('/carry-forward',         [EnrollmentController::class, 'carryForwardCreate'])->name('carry-forward');
+            Route::post('/carry-forward',        [EnrollmentController::class, 'carryForwardStore'])->name('carry-forward.store');
+            Route::post('/bulk-status',          [EnrollmentController::class, 'bulkStatus'])->name('bulk-status');
+            Route::get('/{enrollment}/edit',     [EnrollmentController::class, 'edit'])->name('edit');
+            Route::put('/{enrollment}',          [EnrollmentController::class, 'update'])->name('update');
+            Route::delete('/{enrollment}',       [EnrollmentController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('academic-years')->name('academic-years.')->group(function () {
+            Route::get('/',                           [AcademicYearController::class, 'index'])->name('index');
+            Route::post('/',                          [AcademicYearController::class, 'store'])->name('store');
+            Route::put('/{academicYear}',             [AcademicYearController::class, 'update'])->name('update');
+            Route::delete('/{academicYear}',          [AcademicYearController::class, 'destroy'])->name('destroy');
+            Route::post('/{academicYear}/set-current', [AcademicYearController::class, 'setCurrent'])->name('set-current');
+            Route::post('/{academicYear}/toggle-lock', [AcademicYearController::class, 'toggleLock'])->name('toggle-lock');
+        });
+    });
+
 // ─── Admin (campus-scoped) ────────────────────────────────────────────────────
-Route::middleware(['auth', 'admin', 'campus_selected'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'admin', 'campus_selected', 'year_selected'])->prefix('admin')->name('admin.')->group(function () {
+
+    Route::prefix('academic-years')->name('academic-years.')->group(function () {
+        Route::get('/',                           [AcademicYearController::class, 'index'])->name('index');
+        Route::post('/',                          [AcademicYearController::class, 'store'])->name('store');
+        Route::put('/{academicYear}',             [AcademicYearController::class, 'update'])->name('update');
+        Route::delete('/{academicYear}',          [AcademicYearController::class, 'destroy'])->name('destroy');
+        Route::post('/{academicYear}/set-current', [AcademicYearController::class, 'setCurrent'])->name('set-current');
+        Route::post('/{academicYear}/toggle-lock', [AcademicYearController::class, 'toggleLock'])->name('toggle-lock');
+    });
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::resource('students', StudentController::class);
@@ -102,10 +154,15 @@ Route::middleware(['auth', 'admin', 'campus_selected'])->prefix('admin')->name('
     )->name('sections.assign-teacher');
 
     Route::prefix('attendance')->name('attendance.')->group(function () {
-        Route::get('/',                     [AdminAttendance::class, 'index'])->name('index');
-        Route::get('/report',               [AdminAttendance::class, 'report'])->name('report');
-        Route::get('/{session}',            [AdminAttendance::class, 'show'])->name('show');
-        Route::post('/{session}/unlock',    [AdminAttendance::class, 'unlock'])->name('unlock');
+        Route::get('/',                              [AdminAttendance::class, 'index'])->name('index');
+        Route::get('/report',                        [AdminAttendance::class, 'report'])->name('report');
+        Route::get('/student/{student}',             [AdminAttendance::class, 'studentAttendance'])->name('student');
+        Route::get('/{session}',                     [AdminAttendance::class, 'show'])->name('show');
+        Route::post('/{session}/update-session',     [AdminAttendance::class, 'updateSession'])->name('update-session');
+        Route::post('/{session}/student/{student}',  [AdminAttendance::class, 'updateRecord'])->name('update-record');
+        Route::post('/{session}/unlock',             [AdminAttendance::class, 'unlock'])->name('unlock');
+        Route::post('/{session}/lock',               [AdminAttendance::class, 'lock'])->name('lock');
+        Route::delete('/{session}',                  [AdminAttendance::class, 'destroy'])->name('destroy');
     });
     // ─── Fee Management ──────────────────────────────────────────────────────────
     Route::prefix('fee')->name('fee.')->group(function () {
@@ -203,6 +260,10 @@ Route::middleware(['auth', 'admin', 'campus_selected'])->prefix('admin')->name('
 
 // ─── Teacher Panel ────────────────────────────────────────────────────────────
 Route::middleware(['auth', 'teacher'])->prefix('teacher')->name('teacher.')->group(function () {
+
+    Route::get('/academic-year/select',  [AcademicYearSelectController::class, 'show'])->name('academic-year.select');
+    Route::post('/academic-year/select', [AcademicYearSelectController::class, 'select'])->name('academic-year.select.post');
+    Route::get('/academic-year/switch',  [AcademicYearSelectController::class, 'switchYear'])->name('academic-year.switch');
 
     Route::get('/dashboard', [TeacherDashboard::class, 'index'])->name('dashboard');
 

@@ -45,10 +45,11 @@
                     </a>
                 @else
                     <span class="sidebar-nav-label">Attendance</span>
-                    <div class="sidebar-nav-link" style="opacity:0.4; cursor:not-allowed;">
+                    <div class="sidebar-nav-link" style="opacity:0.4; cursor:not-allowed; pointer-events:none;">
                         <i class="fas fa-lock"></i> No Section Assigned
                     </div>
                 @endif
+
                 <span class="sidebar-nav-label">Performance</span>
                 <a href="{{ route('teacher.performance.subjects') }}"
                     class="sidebar-nav-link {{ request()->routeIs('teacher.performance.subjects') ? 'active' : '' }}">
@@ -84,10 +85,29 @@
                             <i class="fas fa-building"></i> {{ $campusName }}
                         </span>
                     @endif
+                    @php
+                        use App\Helpers\AcademicYearContext;
+                        $activeYear = AcademicYearContext::current();
+                    @endphp
+                    @if ($activeYear)
+                        <span
+                            style="display:inline-flex; align-items:center; gap:6px;
+                 background:rgba(232,160,32,0.12); color:#7a5800;
+                 padding:0.32rem 0.85rem; border-radius:20px;
+                 font-size:0.8rem; font-weight:700;
+                 border:1.5px solid rgba(232,160,32,0.3);">
+                            <i class="fas fa-calendar-alt" style="color:var(--accent);"></i>
+                            {{ $activeYear->name }}
+                        </span>
+                        <a href="{{ route('academic-year.switch') }}" class="campus-switch-btn">
+                            <i class="fas fa-exchange-alt"></i> Year
+                        </a>
+                    @endif
                     <span style="font-size:0.83rem; color:var(--text-muted);">
                         {{ Auth::user()->email }}
                     </span>
-                    <form action="{{ route('logout') }}" method="POST" style="display:inline;">
+                    <form action="{{ route('logout') }}" method="POST" style="display:inline;"
+                        data-confirm="Are you sure you want to logout?" data-type="warning" data-title="Logout">
                         @csrf
                         <button type="submit" class="topbar-logout-btn">
                             <i class="fas fa-sign-out-alt"></i> Logout
@@ -102,8 +122,12 @@
         </main>
     </div>
 
-    {{-- Global Alert Box --}}
-    <div id="sms-overlay" class="sms-overlay" role="dialog" aria-modal="true">
+    {{-- ═══════════════════════════════════════
+     GLOBAL ALERT / CONFIRM BOX
+     IMPORTANT: style="display:none" prevents
+     it from blocking clicks before JS loads
+════════════════════════════════════════ --}}
+    <div id="sms-overlay" class="sms-overlay" role="dialog" aria-modal="true" style="display:none;">
         <div class="sms-box" id="sms-box">
             <div class="sms-icon-wrap" id="sms-icon">
                 <i id="sms-icon-i" class="fas fa-info-circle"></i>
@@ -115,10 +139,13 @@
     </div>
 
     <script>
+        // ── Core ──────────────────────────────────────────────────────────────────────
         function _smsShow() {
             const ov = document.getElementById('sms-overlay');
             ov.style.display = 'flex';
-            requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add('active')));
+            requestAnimationFrame(() =>
+                requestAnimationFrame(() => ov.classList.add('active'))
+            );
             document.addEventListener('keydown', _smsEscHandler);
         }
 
@@ -140,69 +167,90 @@
                 success: 'fa-check-circle',
                 danger: 'fa-exclamation-circle',
                 warning: 'fa-exclamation-triangle',
-                info: 'fa-info-circle'
+                info: 'fa-info-circle',
             };
             document.getElementById('sms-icon').className = 'sms-icon-wrap ' + type;
             document.getElementById('sms-icon-i').className = 'fas ' + (icons[type] || icons.info);
         }
 
+        // ── Alert ─────────────────────────────────────────────────────────────────────
         function smsAlert(message, type = 'info', title = null) {
-            const defaultTitles = {
+            const titles = {
                 success: 'Success',
                 danger: 'Error',
                 warning: 'Warning',
                 info: 'Notice'
             };
-            document.getElementById('sms-title').textContent = title || defaultTitles[type] || 'Notice';
+            document.getElementById('sms-title').textContent = title || titles[type] || 'Notice';
             document.getElementById('sms-message').textContent = message;
             _smsSetType(type);
             document.getElementById('sms-actions').innerHTML =
-                `<button class="btn btn-primary" onclick="_smsHide()"><i class="fas fa-check"></i> OK</button>`;
+                `<button class="btn btn-primary" onclick="_smsHide()">
+             <i class="fas fa-check"></i> OK
+         </button>`;
             _smsShow();
         }
 
+        // ── Confirm ───────────────────────────────────────────────────────────────────
         function smsConfirm(message, onConfirm, title = 'Confirm Action', type = 'warning') {
             document.getElementById('sms-title').textContent = title;
             document.getElementById('sms-message').textContent = message;
             _smsSetType(type);
-            const btnLabels = {
+
+            const labels = {
                 danger: {
-                    confirm: 'Yes, Delete',
-                    confirmClass: 'btn-danger'
+                    text: 'Yes, Delete',
+                    cls: 'btn-danger'
                 },
                 warning: {
-                    confirm: 'Yes, Continue',
-                    confirmClass: 'btn-warning'
+                    text: 'Yes, Continue',
+                    cls: 'btn-warning'
                 },
                 info: {
-                    confirm: 'Yes, Proceed',
-                    confirmClass: 'btn-primary'
+                    text: 'Yes, Proceed',
+                    cls: 'btn-primary'
                 },
                 success: {
-                    confirm: 'Yes',
-                    confirmClass: 'btn-success'
-                }
+                    text: 'Yes',
+                    cls: 'btn-success'
+                },
+            } [type] || {
+                text: 'Yes, Continue',
+                cls: 'btn-warning'
             };
-            const labels = btnLabels[type] || btnLabels.warning;
+
             document.getElementById('sms-actions').innerHTML =
-                `
-        <button class="btn-outline-secondary btn" onclick="_smsHide()"><i class="fas fa-times"></i> Cancel</button>
-        <button class="btn ${labels.confirmClass}" id="sms-confirm-btn"><i class="fas fa-check"></i> ${labels.confirm}</button>`;
+                `<button class="btn-outline-secondary btn" onclick="_smsHide()">
+             <i class="fas fa-times"></i> Cancel
+         </button>
+         <button class="btn ${labels.cls}" id="sms-confirm-btn">
+             <i class="fas fa-check"></i> ${labels.text}
+         </button>`;
+
             document.getElementById('sms-confirm-btn').addEventListener('click', function() {
                 _smsHide();
                 if (typeof onConfirm === 'function') onConfirm();
                 else if (typeof onConfirm === 'string') eval(onConfirm);
             });
+
             _smsShow();
         }
+
+        // ── Auto-wire data-confirm forms ──────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('form[data-confirm]').forEach(form => {
                 form.addEventListener('submit', function(e) {
                     e.preventDefault();
-                    smsConfirm(form.dataset.confirm || 'Are you sure?', () => form.submit(), form
-                        .dataset.title || 'Confirm Action', form.dataset.type || 'warning');
+                    smsConfirm(
+                        form.dataset.confirm || 'Are you sure?',
+                        () => form.submit(),
+                        form.dataset.title || 'Confirm Action',
+                        form.dataset.type || 'warning'
+                    );
                 });
             });
+
+            // Flash messages from Laravel session
             @if (session('success'))
                 smsAlert(@json(session('success')), 'success');
             @endif

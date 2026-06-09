@@ -94,10 +94,25 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .btn-block { width: 100%; justify-content: center; }
 
 /* ===== LAYOUT ===== */
-.portal-layout { display: flex; min-height: 100vh; }
+.portal-layout {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+}
 
 /* Sidebar */
-.portal-sidebar { width: var(--sidebar-width); background: var(--primary-dark); position: fixed; top: 0; left: 0; bottom: 0; z-index: 1000; display: flex; flex-direction: column; overflow-y: auto; }
+.portal-sidebar {
+    width: var(--sidebar-width);
+    background: var(--primary-dark);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;           /* ← lower than 1000, keep below overlays */
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
 .sidebar-brand { padding: 1.35rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
 .sidebar-brand-name { font-family: var(--font-display); color: var(--white); font-size: 1.25rem; display: block; line-height: 1.2; }
 .sidebar-brand-name span { color: var(--accent-light); }
@@ -115,13 +130,37 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .sidebar-user-role { color: rgba(255,255,255,0.4); font-size: 0.72rem; display: block; }
 
 /* Main */
-.portal-main { margin-left: var(--sidebar-width); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-.portal-topbar { height: var(--topbar-height); background: var(--white); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 1.8rem; position: sticky; top: 0; z-index: 900; box-shadow: var(--shadow); }
+.portal-main {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: calc(100% - var(--sidebar-width));   /* ← explicit width */
+    position: relative;
+    z-index: 1;                                  /* ← stacking context */
+}
+.portal-topbar {
+    height: var(--topbar-height);
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.8rem;
+    position: sticky;
+    top: 0;
+    z-index: 90;            /* ← below sidebar, above content */
+    box-shadow: var(--shadow);
+}
 .topbar-title { font-weight: 700; font-size: 1.04rem; color: var(--primary); }
 .topbar-actions { display: flex; align-items: center; gap: 0.8rem; }
 .topbar-logout-btn { display: inline-flex; align-items: center; gap: 6px; padding: 0.4rem 0.9rem; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); border: 1.5px solid var(--border); font-size: 0.84rem; font-weight: 500; cursor: pointer; transition: all var(--transition); font-family: var(--font-main); }
 .topbar-logout-btn:hover { background: var(--danger); color: var(--white); border-color: var(--danger); }
-.portal-content { padding: 1.8rem 2rem; flex: 1; }
+.portal-content {
+    padding: 1.8rem 2rem;
+    flex: 1;
+}
 
 /* ===== CARDS ===== */
 .card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
@@ -1071,16 +1110,21 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     position: fixed;
     inset: 0;
     background: rgba(15, 37, 64, 0.55);
-    z-index: 99999;
+    z-index: 99999;           /* ← highest of all */
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 1rem;
     opacity: 0;
     transition: opacity 0.2s ease;
+    /* CRITICAL: pointer-events none when hidden */
+    pointer-events: none;
 }
 
-.sms-overlay.active { opacity: 1; }
+.sms-overlay.active {
+    opacity: 1;
+    pointer-events: all;    /* ← only capture clicks when active */
+}
 
 .sms-box {
     background: var(--white);

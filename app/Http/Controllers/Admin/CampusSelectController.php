@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\AcademicYearContext;
 use App\Helpers\CampusContext;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -41,13 +42,38 @@ class CampusSelectController extends Controller
         }
 
         CampusContext::set((int) $request->campus_id);
-
-        return redirect()->route('admin.dashboard')
-            ->with('success', 'Campus selected successfully.');
+        AcademicYearContext::clear();
+        return $this->redirectToYearSelection((int) $request->campus_id);
+        // return redirect()->route('admin.dashboard')
+        //     ->with('success', 'Campus selected successfully.');
     }
+
+    private function redirectToYearSelection(int $campusId)
+    {
+        $years = \App\Models\AcademicYear::where('campus_id', $campusId)
+            ->orderByDesc('start_date')
+            ->get();
+
+        if ($years->count() === 1) {
+            AcademicYearContext::set($years->first()->id);
+            return redirect()->route('admin.dashboard')
+                ->with('success', 'Campus selected successfully.');
+        }
+
+        $currentYear = $years->firstWhere('is_current', true);
+        if ($currentYear) {
+            AcademicYearContext::set($currentYear->id);
+            return redirect()->route('admin.dashboard')
+                ->with('success', 'Campus selected successfully.');
+        }
+
+        return redirect()->route('academic-year.select');
+    }
+
 
     public function switchCampus()
     {
+        AcademicYearContext::clear();
         CampusContext::clear();
         return redirect()->route('campus.select');
     }

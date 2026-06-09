@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\AcademicYearContext;
 use Illuminate\Database\Eloquent\Model;
 
 class Student extends Model
@@ -9,74 +10,70 @@ class Student extends Model
     protected $fillable = [
         'user_id',
         'campus_id',
-        'roll_number',
-        'gr_number',
         'full_name',
         'father_name',
         'mother_name',
         'cnic',
-        'phone',
         'gender',
         'date_of_birth',
-        'religion',
-        'nationality',
         'blood_group',
+        'phone',
         'address',
         'city',
         'district',
         'province',
-        'class_id',
-        'section_id',
         'admission_date',
         'previous_school',
-        'status',
         'photo',
+        'status',
     ];
 
-    protected $casts = ['date_of_birth' => 'date', 'admission_date' => 'date', 'is_active' => 'boolean'];
+    protected $casts = [
+        'date_of_birth'  => 'date',
+        'admission_date' => 'date',
+    ];
 
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+    // ── Relationships ─────────────────────────────────────────────────────────
 
-    public function campus()
-    {
-        return $this->belongsTo(Campus::class);
-    }
+    public function user()        { return $this->belongsTo(User::class); }
+    public function campus()      { return $this->belongsTo(Campus::class); }
+    public function parentRecord(){ return $this->hasOne(ParentRecord::class); }
 
-    public function schoolClass()
+    // All enrollments across all years
+    public function enrollments()
     {
-        return $this->belongsTo(SchoolClass::class, 'class_id');
-    }
-    public function section()
-    {
-        return $this->belongsTo(Section::class);
-    }
-    public function parentRecord()
-    {
-        return $this->hasOne(ParentRecord::class);
-    }
-    public function educationRecords()
-    {
-        return $this->hasMany(StudentEducationRecord::class);
+        return $this->hasMany(StudentEnrollment::class);
     }
 
-    public function getStatusBadgeClassAttribute(): string
+    // Current year enrollment (uses AcademicYearContext)
+    public function currentEnrollment()
     {
-        return match ($this->status) {
-            'active'      => 'badge-approved',
-            'transferred' => 'badge-pending',
-            'expelled'    => 'badge-rejected',
-            default       => 'badge-rejected',
-        };
+        return $this->hasOne(StudentEnrollment::class)
+            ->where('academic_year_id', AcademicYearContext::id());
     }
 
-    public function getAgeAttribute(): int
+    // Latest enrollment (most recent year)
+    public function latestEnrollment()
     {
-        return $this->date_of_birth->diffInYears(now());
+        return $this->hasOne(StudentEnrollment::class)
+            ->orderByDesc('academic_year_id');
     }
 
+    // Enrollment for a specific year
+    public function enrollmentForYear(int $academicYearId): ?StudentEnrollment
+    {
+        return $this->enrollments()
+            ->where('academic_year_id', $academicYearId)
+            ->first();
+    }
+
+    // Attendance
+    public function attendanceRecords()
+    {
+        return $this->hasMany(AttendanceRecord::class);
+    }
+
+    // Fee
     public function schedulerAssignment()
     {
         return $this->hasOne(StudentScheduler::class);
@@ -92,9 +89,68 @@ class Student extends Model
         return $this->hasMany(FeeInvoice::class);
     }
 
-    // Add inside Student model
-    public function attendanceRecords()
+    // Marks
+    public function marks()
     {
-        return $this->hasMany(AttendanceRecord::class);
+        return $this->hasMany(StudentMark::class);
+    }
+
+    // ── Accessors ─────────────────────────────────────────────────────────────
+
+    // Quick access to current year class via enrollment
+    public function getClassNameAttribute(): string
+    {
+        return $this->currentEnrollment?->schoolClass?->name ?? '—';
+    }
+
+    public function getSectionNameAttribute(): string
+    {
+        return $this->currentEnrollment?->section?->name ?? '—';
+    }
+
+    public function getRollNumberAttribute(): string
+    {
+        return $this->currentEnrollment?->roll_number ?? '—';
+    }
+
+    public function getEnrollmentStatusAttribute(): string
+    {
+        return $this->currentEnrollment?->status ?? 'not enrolled';
+    }
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo
+            ? asset('storage/' . $this->photo)
+            : null;
+    }
+
+    // ── Scopes ────────────────────────────────────────────────────────────────
+
+    // Scope to students enrolled in the current academic year in a campus
+    public function scopeEnrolledInYear($query, int $academicYearId, int $campusId)
+    {
+        return $query->whereHas('enrollments', function ($q) use ($academicYearId, $campusId) {
+            $q->where('academic_year_id', $academicYearId)
+              ->where('campus_id', $campusId);
+        });
+    }
+
+    // Scope to students enrolled in a specific section in a year
+    public function scopeInSection($query, int $sectionId, int $academicYearId)
+    {
+        return $query->whereHas('enrollments', function ($q) use ($sectionId, $academicYearId) {
+            $q->where('section_id', $sectionId)
+              ->where('academic_year_id', $academicYearId);
+        });
+    }
+
+    // Scope to students enrolled in a specific class in a year
+    public function scopeInClass($query, int $classId, int $academicYearId)
+    {
+        return $query->whereHas('enrollments', function ($q) use ($classId, $academicYearId) {
+            $q->where('class_id', $classId)
+              ->where('academic_year_id', $academicYearId);
+        });
     }
 }

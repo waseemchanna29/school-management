@@ -65,6 +65,23 @@
                         <i class="fas fa-tachometer-alt"></i> Dashboard
                     </a>
 
+                    <a href="{{ route('admin.academic-years.index') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.academic-years.*') ? 'active' : '' }}">
+                        <i class="fas fa-calendar-alt"></i> Academic Years
+                    </a>
+                    <span class="sidebar-nav-label">Enrollment</span>
+                    <a href="{{ route('admin.enrollment.index') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.enrollment.index') ? 'active' : '' }}">
+                        <i class="fas fa-user-graduate"></i> Enrollments
+                    </a>
+                    <a href="{{ route('admin.enrollment.carry-forward') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.enrollment.carry-forward') ? 'active' : '' }}">
+                        <i class="fas fa-forward"></i> Carry Forward
+                    </a>
+                    <a href="{{ route('admin.enrollment.admission') }}"
+                        class="sidebar-nav-link {{ request()->routeIs('admin.enrollment.admission') ? 'active' : '' }}">
+                        <i class="fas fa-user-plus"></i> New Admission
+                    </a>
                     <span class="sidebar-nav-label">People</span>
                     <a href="{{ route('admin.students.index') }}"
                         class="sidebar-nav-link {{ request()->routeIs('admin.students.*') ? 'active' : '' }}">
@@ -165,7 +182,27 @@
                             <i class="fas fa-exchange-alt"></i> Switch
                         </a>
                     @endif
-
+                    @php
+                        use App\Helpers\AcademicYearContext;
+                        $activeYear = !$isSuperAdmin ? AcademicYearContext::current() : null;
+                    @endphp
+                    @if ($activeYear)
+                        <span
+                            style="display:inline-flex; align-items:center; gap:6px;
+                 background:rgba(232,160,32,0.12); color:#7a5800;
+                 padding:0.32rem 0.85rem; border-radius:20px;
+                 font-size:0.8rem; font-weight:700;
+                 border:1.5px solid rgba(232,160,32,0.3);">
+                            <i class="fas fa-calendar-alt" style="color:var(--accent);"></i>
+                            {{ $activeYear->name }}
+                            @if ($activeYear->is_locked)
+                                <i class="fas fa-lock" style="font-size:0.65rem;"></i>
+                            @endif
+                        </span>
+                        <a href="{{ route('academic-year.switch') }}" class="campus-switch-btn">
+                            <i class="fas fa-exchange-alt"></i> Year
+                        </a>
+                    @endif
                     <span style="font-size:0.83rem; color:var(--text-muted);">
                         {{ Auth::user()->email }}
                     </span>
@@ -216,7 +253,7 @@
        smsConfirm('Are you sure?', callback, 'Title', 'danger')
 ════════════════════════════════════════════════════════════════ --}}
 
-    <div id="sms-overlay" class="sms-overlay" role="dialog" aria-modal="true">
+    <div id="sms-overlay" class="sms-overlay" role="dialog" aria-modal="true" style="display:none;">
         <div class="sms-box" id="sms-box">
             <div class="sms-icon-wrap" id="sms-icon">
                 <i id="sms-icon-i" class="fas fa-info-circle"></i>

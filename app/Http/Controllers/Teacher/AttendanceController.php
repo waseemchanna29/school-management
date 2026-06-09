@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\AttendanceSession;
+use App\Models\Section;
 use App\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,25 +13,33 @@ use Illuminate\Support\Facades\DB;
 
 class AttendanceController extends Controller
 {
-    // Get the authenticated teacher
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
     private function teacher()
     {
         return Auth::user()->teacher;
     }
 
-    // Get the section this teacher is class teacher of
     private function classSection()
     {
-        return $this->teacher()?->classTeacherOf()->with(['schoolClass', 'students.user'])->first();
+        return $this->teacher()
+            ?->classTeacherOf()
+            ->with(['schoolClass', 'students'])
+            ->first();
     }
 
-    // Verify teacher is class teacher of the session's section
     private function authorizeSession(AttendanceSession $session): void
     {
         if ($session->teacher_id !== $this->teacher()->id) abort(403);
     }
 
-    // ── Take Attendance ──────────────────────────────────────────────────────
+    private function currentAcademicYear(): string
+    {
+        $y = (int) date('Y');
+        return date('n') >= 4 ? "$y-" . ($y + 1) : ($y - 1) . "-$y";
+    }
+
+    // ── Take Attendance ───────────────────────────────────────────────────────
     public function take(Request $request)
     {
         $teacher = $this->teacher();
@@ -43,30 +52,42 @@ class AttendanceController extends Controller
 
         $date = $request->get('date', today()->toDateString());
 
-        // Check if session already exists for this date
+        // ── Block future dates ───────────────────────────────────────────────
+        if ($date > today()->toDateString()) {
+            $date = today()->toDateString();
+            return redirect()
+                ->route('teacher.attendance.take', ['date' => $date])
+                ->with('error', 'Attendance cannot be taken for future dates.');
+        }
+
+        // Check existing session
         $session = AttendanceSession::where('section_id', $section->id)
             ->whereDate('date', $date)
             ->with('records.student')
             ->first();
 
-        // Get all students in this section
+        // Get students
         $students = Student::where('section_id', $section->id)
             ->where('status', 'active')
             ->orderBy('full_name')
             ->get();
 
+        $isLocked   = $session && ($session->isLocked() || $session->isSubmitted());
+        $isEditable = !$isLocked;
+
         return view('teacher.attendance.take', compact(
-            'teacher', 'section', 'date', 'session', 'students'
+            'teacher', 'section', 'date', 'session',
+            'students', 'isLocked', 'isEditable'
         ));
     }
 
-    // ── Save Attendance ──────────────────────────────────────────────────────
+    // ── Save (draft) ──────────────────────────────────────────────────────────
     public function save(Request $request)
     {
         $request->validate([
-            'date'        => ['required', 'date'],
-            'attendance'  => ['required', 'array'],
-            'attendance.*.status' => ['required', 'in:present,absent,late,leave'],
+            'date'                        => ['required', 'date', 'before_or_equal:today'],
+            'attendance'                  => ['required', 'array'],
+            'attendance.*.status'         => ['required', 'in:present,absent,late,leave'],
         ]);
 
         $teacher = $this->teacher();
@@ -76,31 +97,32 @@ class AttendanceController extends Controller
             return back()->with('error', 'You are not assigned as class teacher.');
         }
 
-        // Check if a submitted/locked session exists
+        // ── Block future dates server-side ───────────────────────────────────
+        if ($request->date > today()->toDateString()) {
+            return back()->with('error', 'Attendance cannot be saved for future dates.');
+        }
+
+        // ── Block edits on locked/submitted sessions ─────────────────────────
         $existing = AttendanceSession::where('section_id', $section->id)
             ->whereDate('date', $request->date)
             ->first();
 
         if ($existing && ($existing->isSubmitted() || $existing->isLocked())) {
-            return back()->with('error', 'This attendance session is already submitted and locked.');
+            return back()->with('error', 'This attendance session is locked and cannot be edited.');
         }
 
         DB::transaction(function () use ($request, $teacher, $section, $existing) {
-            $academicYear = $this->currentAcademicYear();
-
-            // Create or update session
             $session = $existing ?? AttendanceSession::create([
-                'campus_id'    => $teacher->campus_id,
-                'class_id'     => $section->class_id,
-                'section_id'   => $section->id,
-                'teacher_id'   => $teacher->id,
-                'date'         => $request->date,
-                'academic_year'=> $academicYear,
-                'status'       => 'draft',
-                'locked'       => false,
+                'campus_id'     => $teacher->campus_id,
+                'class_id'      => $section->class_id,
+                'section_id'    => $section->id,
+                'teacher_id'    => $teacher->id,
+                'date'          => $request->date,
+                'academic_year' => $this->currentAcademicYear(),
+                'status'        => 'draft',
+                'locked'        => false,
             ]);
 
-            // Save records
             foreach ($request->attendance as $studentId => $data) {
                 AttendanceRecord::updateOrCreate(
                     [
@@ -118,13 +140,13 @@ class AttendanceController extends Controller
         return back()->with('success', 'Attendance saved as draft.');
     }
 
-    // ── Submit Attendance ────────────────────────────────────────────────────
+    // ── Submit (lock) ─────────────────────────────────────────────────────────
     public function submit(Request $request, AttendanceSession $session)
     {
         $this->authorizeSession($session);
 
-        if ($session->isLocked()) {
-            return back()->with('error', 'This session is locked.');
+        if ($session->isLocked() || $session->isSubmitted()) {
+            return back()->with('error', 'This session is already locked.');
         }
 
         if ($session->records()->count() === 0) {
@@ -142,59 +164,99 @@ class AttendanceController extends Controller
             ->with('success', 'Attendance submitted and locked successfully.');
     }
 
-    // ── History ──────────────────────────────────────────────────────────────
+    // ── History — Day-wise + Student-wise ────────────────────────────────────
     public function history(Request $request)
     {
         $teacher = $this->teacher();
         $section = $this->classSection();
 
-        $query = AttendanceSession::where('teacher_id', $teacher->id)
-            ->with(['section', 'schoolClass', 'records']);
+        // Default date = today
+        $selectedDate = $request->get('date', today()->toDateString());
+        $viewMode     = $request->get('view', 'day'); // 'day' or 'student'
 
-        if ($request->filled('month')) {
-            $query->whereMonth('date', $request->month)
-                  ->whereYear('date', $request->year ?? date('Y'));
+        // Month/year for calendar
+        $month = (int) $request->get('month', date('n'));
+        $year  = (int) $request->get('year', date('Y'));
+
+        // Date range for student view
+        $dateFrom = $request->get('date_from', now()->startOfMonth()->toDateString());
+        $dateTo   = $request->get('date_to', today()->toDateString());
+
+        // ── Day-wise: all sessions for this teacher ──────────────────────────
+        $sessionsQuery = AttendanceSession::where('teacher_id', $teacher->id)
+            ->with(['section.schoolClass', 'records']);
+
+        // Filter by date
+        if ($request->filled('date')) {
+            $sessionsQuery->whereDate('date', $selectedDate);
+        } else {
+            // Default: show today's session if exists, else current month
+            $sessionsQuery->whereMonth('date', $month)
+                          ->whereYear('date', $year);
         }
 
-        $sessions = $query->latest('date')->paginate(20);
+        $sessions = $sessionsQuery->latest('date')->paginate(20);
 
-        // Monthly summary for chart
-        $month = $request->get('month', date('n'));
-        $year  = $request->get('year', date('Y'));
+        // ── Student-wise: selected section students + their records ──────────
+        $students    = collect();
+        $sessionDays = collect();
+        $studentGrid = [];
 
-        $monthlySessions = AttendanceSession::where('teacher_id', $teacher->id)
+        if ($section) {
+            // All sessions in date range for this section
+            $sessionDays = AttendanceSession::where('section_id', $section->id)
+                ->whereBetween('date', [$dateFrom, $dateTo])
+                ->where('status', 'submitted')
+                ->with('records')
+                ->orderBy('date')
+                ->get();
+
+            $students = Student::where('section_id', $section->id)
+                ->where('status', 'active')
+                ->orderBy('full_name')
+                ->get();
+
+            // Build grid: student_id → date → status
+            foreach ($students as $student) {
+                $studentGrid[$student->id] = [];
+                foreach ($sessionDays as $sess) {
+                    $record = $sess->records->firstWhere('student_id', $student->id);
+                    $studentGrid[$student->id][$sess->date->toDateString()] = $record?->status ?? null;
+                }
+            }
+        }
+
+        // ── Calendar: days in selected month that have sessions ──────────────
+        $calendarSessions = AttendanceSession::where('teacher_id', $teacher->id)
             ->whereMonth('date', $month)
             ->whereYear('date', $year)
-            ->where('status', 'submitted')
-            ->with('records')
-            ->get();
+            ->get()
+            ->keyBy(fn($s) => $s->date->toDateString());
 
-        $chartData = $monthlySessions->map(fn($s) => [
-            'date'    => $s->date->format('d'),
-            'present' => $s->present_count,
-            'absent'  => $s->absent_count,
-            'late'    => $s->late_count,
-        ])->sortBy('date')->values();
+        // Days in month
+        $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+        $firstDay    = \Carbon\Carbon::create($year, $month, 1)->dayOfWeek; // 0=Sun
 
         return view('teacher.attendance.history', compact(
-            'teacher', 'section', 'sessions', 'chartData', 'month', 'year'
+            'teacher', 'section', 'sessions',
+            'students', 'sessionDays', 'studentGrid',
+            'selectedDate', 'viewMode',
+            'month', 'year', 'dateFrom', 'dateTo',
+            'calendarSessions', 'daysInMonth', 'firstDay'
         ));
     }
 
-    // ── Show Session Detail ──────────────────────────────────────────────────
+    // ── Show Session Detail ───────────────────────────────────────────────────
     public function show(AttendanceSession $session)
     {
         $this->authorizeSession($session);
 
-        $session->load([
-            'section.schoolClass',
-            'records.student',
-        ]);
+        $session->load(['section.schoolClass', 'records.student']);
 
         return view('teacher.attendance.show', compact('session'));
     }
 
-    // ── Student Report ───────────────────────────────────────────────────────
+    // ── Student Report (monthly summary) ─────────────────────────────────────
     public function studentReport(Request $request)
     {
         $teacher = $this->teacher();
@@ -217,7 +279,6 @@ class AttendanceController extends Controller
 
         $workingDays = $sessions->count();
 
-        // Build student summary
         $students = Student::where('section_id', $section->id)
             ->where('status', 'active')
             ->get();
@@ -225,8 +286,8 @@ class AttendanceController extends Controller
         $summary = [];
         foreach ($students as $student) {
             $records = collect();
-            foreach ($sessions as $session) {
-                $record = $session->records->firstWhere('student_id', $student->id);
+            foreach ($sessions as $sess) {
+                $record = $sess->records->firstWhere('student_id', $student->id);
                 if ($record) $records->push($record);
             }
 
@@ -246,11 +307,5 @@ class AttendanceController extends Controller
         return view('teacher.attendance.student-report', compact(
             'teacher', 'section', 'summary', 'workingDays', 'month', 'year'
         ));
-    }
-
-    private function currentAcademicYear(): string
-    {
-        $y = (int) date('Y');
-        return date('n') >= 4 ? "$y-" . ($y + 1) : ($y - 1) . "-$y";
     }
 }

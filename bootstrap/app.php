@@ -20,7 +20,8 @@ return Application::configure(basePath: dirname(__DIR__))
             // new
             'api.role'         => \App\Http\Middleware\ApiRoleMiddleware::class,
 
-             'teacher' => \App\Http\Middleware\TeacherMiddleware::class,
+            'teacher' => \App\Http\Middleware\TeacherMiddleware::class,
+            'year_selected'    => \App\Http\Middleware\AcademicYearSelectedMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -28,6 +28,14 @@
             </div>
         </div>
         <div class="d-flex gap-2">
+            {{-- Performance tab link in the action buttons --}}
+            <a href="{{ route('admin.performance.student-report', $student) }}" class="btn-outline-primary btn btn-sm">
+                <i class="fas fa-chart-line"></i> Performance
+            </a>
+            {{-- Add to the tab nav links --}}
+            <a href="{{ route('admin.attendance.student', $student) }}" class="btn-outline-primary btn btn-sm">
+                <i class="fas fa-clipboard-check"></i> Attendance
+            </a>
             {{-- Add to the action buttons at top of student show page --}}
             <a href="{{ route('admin.fee.student.show', $student) }}" class="btn-outline-primary btn btn-sm">
                 <i class="fas fa-file-invoice-dollar"></i> Manage Fees
@@ -41,11 +49,7 @@
         </div>
     </div>
 
-    {{-- Performance tab link in the action buttons --}}
-    <a href="{{ route('admin.performance.student-report', $student) }}" class="btn-outline-primary btn btn-sm">
-        <i class="fas fa-chart-line"></i> Performance
-    </a>
-    
+
     <div class="row">
         <div class="col-8">
             <!-- Personal Info -->
