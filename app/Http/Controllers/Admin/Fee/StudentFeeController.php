@@ -17,50 +17,97 @@ class StudentFeeController extends Controller
     public function __construct(private FeeService $fee) {}
 
     // Show student's fee profile
+    // ── Update show() to load enrollment data ─────────────────────────────────────
     public function show(Student $student)
     {
         $this->gate($student);
 
-        $assignment = StudentScheduler::where('student_id', $student->id)
+        $yearId = \App\Helpers\AcademicYearContext::id();
+
+        // Verify student is enrolled this year
+        $enrollment = \App\Models\StudentEnrollment::where('student_id', $student->id)
+            ->where('campus_id', CampusContext::id())
+            ->where('academic_year_id', $yearId)
+            ->with(['schoolClass', 'section'])
+            ->first();
+
+        $assignment = \App\Models\StudentScheduler::where('student_id', $student->id)
+            ->where('academic_year_id', $yearId)    // ← year-scoped
             ->with('feeScheduler')
             ->first();
 
-        $items = StudentSchedulerItem::where('student_id', $student->id)
+        $items = \App\Models\StudentSchedulerItem::where('student_id', $student->id)
             ->orderBy('sort_order')
             ->get();
 
-        $schedulers = FeeScheduler::where('campus_id', CampusContext::id())
+        $schedulers = \App\Models\FeeScheduler::where('campus_id', CampusContext::id())
             ->where('is_active', true)
             ->with('items')
             ->get();
 
-        $invoices = FeeInvoice::where('student_id', $student->id)
+        $invoices = \App\Models\FeeInvoice::where('student_id', $student->id)
+            ->where('academic_year_id', $yearId)    // ← year-scoped
             ->latest()
             ->paginate(12);
 
         return view('admin.fee.student', compact(
-            'student', 'assignment', 'items', 'schedulers', 'invoices'
+            'student',
+            'enrollment',
+            'assignment',
+            'items',
+            'schedulers',
+            'invoices'
         ));
     }
 
-    // Assign scheduler to student
+    // ── Update assign() to include academic_year_id ──────────────────────────────
     public function assign(Request $request, Student $student)
     {
         $this->gate($student);
+        $yearId = \App\Helpers\AcademicYearContext::id();
 
         $request->validate([
             'fee_scheduler_id' => ['required', 'exists:fee_schedulers,id'],
             'assigned_date'    => ['required', 'date'],
         ]);
 
-        $scheduler = FeeScheduler::where('campus_id', CampusContext::id())
+        $scheduler = \App\Models\FeeScheduler::where('campus_id', CampusContext::id())
             ->findOrFail($request->fee_scheduler_id);
 
-        $this->fee->assignScheduler($student, $scheduler->id, $request->assigned_date);
+        // Remove old assignment for this year only
+        \App\Models\StudentScheduler::where('student_id', $student->id)
+            ->where('academic_year_id', $yearId)
+            ->delete();
+        \App\Models\StudentSchedulerItem::where('student_id', $student->id)
+            ->delete();
 
-        return back()->with('success', "\"{$scheduler->name}\" assigned to {$student->full_name}.");
+        // Create new assignment with year
+        \App\Models\StudentScheduler::create([
+            'student_id'       => $student->id,
+            'campus_id'        => $student->campus_id,
+            'academic_year_id' => $yearId,    // ← NEW
+            'fee_scheduler_id' => $scheduler->id,
+            'assigned_date'    => $request->assigned_date,
+        ]);
+
+        // Copy items
+        foreach ($scheduler->items as $i => $item) {
+            \App\Models\StudentSchedulerItem::create([
+                'student_id'       => $student->id,
+                'campus_id'        => $student->campus_id,
+                'fee_scheduler_id' => $scheduler->id,
+                'label'            => $item->label,
+                'amount'           => $item->amount,
+                'is_active'        => true,
+                'sort_order'       => $i,
+            ]);
+        }
+
+        return back()->with(
+            'success',
+            "\"{$scheduler->name}\" assigned to {$student->full_name}."
+        );
     }
-
     // Update a single item on the student's personal copy
     public function updateItem(Request $request, StudentSchedulerItem $item)
     {

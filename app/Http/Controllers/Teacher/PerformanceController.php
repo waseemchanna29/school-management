@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers\Teacher;
 
+use App\Helpers\AcademicYearContext;
 use App\Http\Controllers\Controller;
-use App\Models\ExamTypeWeight;
 use App\Models\Student;
+use App\Models\StudentEnrollment;
 use App\Models\StudentMark;
 use App\Models\Subject;
 use App\Services\PerformanceService;
@@ -21,55 +22,61 @@ class PerformanceController extends Controller
         return Auth::user()->teacher;
     }
 
-    private function currentAcademicYear(): string
+    private function yearId(): int
     {
-        $y = (int) date('Y');
-        return date('n') >= 4 ? "$y-" . ($y + 1) : ($y - 1) . "-$y";
+        return AcademicYearContext::id();
     }
 
-    // Teacher: list their assigned subjects to enter marks
+    // ── Subjects list ─────────────────────────────────────────────────────────
     public function subjects()
     {
-        $teacher  = $this->teacher();
+        $teacher = $this->teacher();
         $subjects = $teacher->subjects()
             ->with('schoolClass')
             ->where('is_active', true)
             ->get();
 
-        $terms    = PerformanceService::TERMS;
-        $weights  = $this->perf->getExamWeights($teacher->campus_id);
+        $terms   = PerformanceService::TERMS;
+        $weights = $this->perf->getExamWeights($teacher->campus_id);
 
-        return view('teacher.performance.subjects', compact(
-            'teacher', 'subjects', 'terms', 'weights'
-        ));
+        return view('teacher.performance.subjects',
+            compact('teacher', 'subjects', 'terms', 'weights'));
     }
 
-    // Teacher: enter marks for a subject
+    // ── Enter marks ───────────────────────────────────────────────────────────
     public function enterMarks(Request $request, Subject $subject)
     {
         $teacher = $this->teacher();
+        $yearId  = $this->yearId();
 
         // Verify teacher is assigned this subject
-        $assigned = $teacher->subjects()->where('subject_id', $subject->id)->exists();
+        $assigned = $teacher->subjects()
+            ->where('subject_id', $subject->id)->exists();
         if (!$assigned) abort(403, 'You are not assigned to this subject.');
 
-        $academicYear = $request->get('academic_year', $this->currentAcademicYear());
-        $term         = (int) $request->get('term', 1);
-        $examType     = $request->get('exam_type', 'class_test');
+        $term     = (int) $request->get('term', 1);
+        $examType = $request->get('exam_type', 'class_test');
 
         $weights = $this->perf->getExamWeights($teacher->campus_id);
         $weight  = $weights->firstWhere('exam_type', $examType);
 
-        // Students in this subject's class
-        $students = Student::where('class_id', $subject->class_id)
+        // Students via enrollment in this subject's class
+        $students = Student::whereHas('enrollments', fn($q) => $q
+            ->where('class_id', $subject->class_id)
             ->where('campus_id', $teacher->campus_id)
+            ->where('academic_year_id', $yearId)    // ← NEW
             ->where('status', 'active')
-            ->orderBy('full_name')
-            ->get();
+        )
+        ->with(['enrollments' => fn($q) => $q
+            ->where('academic_year_id', $yearId)
+        ])
+        ->orderBy('full_name')
+        ->get()
+        ->each(fn($s) => $s->enrollment = $s->enrollments->first());
 
         // Existing marks for this batch
         $existingMarks = StudentMark::where('subject_id', $subject->id)
-            ->where('academic_year', $academicYear)
+            ->where('academic_year_id', $yearId)    // ← FK
             ->where('term', $term)
             ->where('exam_type', $examType)
             ->whereIn('student_id', $students->pluck('id'))
@@ -81,21 +88,22 @@ class PerformanceController extends Controller
 
         return view('teacher.performance.enter-marks', compact(
             'teacher', 'subject', 'students', 'existingMarks',
-            'weights', 'weight', 'academicYear', 'term', 'examType',
+            'weights', 'weight', 'yearId', 'term', 'examType',
             'years', 'terms'
         ));
     }
 
-    // Teacher: save marks
+    // ── Save marks ────────────────────────────────────────────────────────────
     public function saveMarks(Request $request, Subject $subject)
     {
         $teacher = $this->teacher();
+        $yearId  = $this->yearId();
 
-        $assigned = $teacher->subjects()->where('subject_id', $subject->id)->exists();
+        $assigned = $teacher->subjects()
+            ->where('subject_id', $subject->id)->exists();
         if (!$assigned) abort(403);
 
         $request->validate([
-            'academic_year'    => ['required', 'string'],
             'term'             => ['required', 'integer', 'min:1', 'max:3'],
             'exam_type'        => ['required', 'string'],
             'exam_date'        => ['required', 'date'],
@@ -105,19 +113,18 @@ class PerformanceController extends Controller
             'marks.*.remarks'  => ['nullable', 'string', 'max:200'],
         ]);
 
-        DB::transaction(function () use ($request, $subject, $teacher) {
+        DB::transaction(function () use ($request, $subject, $teacher, $yearId) {
             foreach ($request->marks as $studentId => $data) {
                 $obtained = $data['obtained'] ?? null;
-
                 if (is_null($obtained) || $obtained === '') continue;
 
                 StudentMark::updateOrCreate(
                     [
-                        'student_id'    => $studentId,
-                        'subject_id'    => $subject->id,
-                        'academic_year' => $request->academic_year,
-                        'term'          => $request->term,
-                        'exam_type'     => $request->exam_type,
+                        'student_id'       => $studentId,
+                        'subject_id'       => $subject->id,
+                        'academic_year_id' => $yearId,    // ← FK
+                        'term'             => $request->term,
+                        'exam_type'        => $request->exam_type,
                     ],
                     [
                         'teacher_id'     => $teacher->id,
@@ -134,35 +141,35 @@ class PerformanceController extends Controller
         return back()->with('success', 'Marks saved successfully.');
     }
 
-    // Teacher: view marks they entered
+    // ── Marks history ─────────────────────────────────────────────────────────
     public function history(Request $request)
     {
-        $teacher      = $this->teacher();
-        $academicYear = $request->get('academic_year', $this->currentAcademicYear());
-        $term         = $request->get('term', 1);
+        $teacher = $this->teacher();
+        $yearId  = $this->yearId();
+
+        $term = $request->get('term', 1);
 
         $marks = StudentMark::where('teacher_id', $teacher->id)
-            ->where('academic_year', $academicYear)
+            ->where('academic_year_id', $yearId)    // ← FK
             ->where('term', $term)
-            ->with(['student.schoolClass', 'subject'])
+            ->with(['student.enrollments', 'subject'])
             ->latest()
             ->paginate(25);
 
         $years = $this->academicYears();
         $terms = PerformanceService::TERMS;
 
-        return view('teacher.performance.history', compact(
-            'teacher', 'marks', 'years', 'terms', 'academicYear', 'term'
-        ));
+        return view('teacher.performance.history',
+            compact('teacher', 'marks', 'years', 'terms', 'yearId', 'term'));
     }
 
-    private function academicYears(): array
+    private function academicYears(): \Illuminate\Database\Eloquent\Collection
     {
-        $years = [];
-        $start = (int) date('Y') - 1;
-        for ($i = $start; $i <= $start + 3; $i++) {
-            $years[] = $i . '-' . ($i + 1);
-        }
-        return $years;
+        return \App\Models\AcademicYear::where(
+            'campus_id',
+            $this->teacher()->campus_id
+        )
+        ->orderByDesc('start_date')
+        ->get();
     }
 }

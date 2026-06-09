@@ -83,33 +83,31 @@ class PerformanceService
 
     /**
      * Get full performance report for a student.
-     * Returns per-subject, per-term breakdown with grades.
+     * Now uses academic_year_id (int) instead of string.
      */
     public function getStudentReport(
         Student $student,
-        string  $academicYear,
+        int     $academicYearId,     // ← was: string $academicYear
         int     $term
     ): array {
         $campusId = $student->campus_id;
         $scale    = $this->getGradeScale($campusId);
         $weights  = $this->getExamWeights($campusId);
 
-        // All marks for this student this year+term
         $allMarks = StudentMark::where('student_id', $student->id)
-            ->where('academic_year', $academicYear)
+            ->where('academic_year_id', $academicYearId)   // ← FK
             ->where('term', $term)
             ->with('subject')
             ->get();
 
-        // Group by subject
         $bySubject = $allMarks->groupBy('subject_id');
 
-        $subjectResults = [];
+        $subjectResults   = [];
         $totalWeightedAvg = 0;
-        $subjectCount   = 0;
+        $subjectCount     = 0;
 
         foreach ($bySubject as $subjectId => $marks) {
-            $subject = $marks->first()->subject;
+            $subject     = $marks->first()->subject;
             $weightedAvg = $this->calculateWeightedAverage($marks, $weights);
             $grade       = $scale?->getGrade($weightedAvg);
 
@@ -126,23 +124,25 @@ class PerformanceService
             }
 
             $subjectResults[] = [
-                'subject'         => $subject,
-                'marks'           => $marks,
-                'exam_breakdown'  => $examBreakdown,
-                'weighted_avg'    => $weightedAvg,
-                'grade'           => $grade,
+                'subject'        => $subject,
+                'marks'          => $marks,
+                'exam_breakdown' => $examBreakdown,
+                'weighted_avg'   => $weightedAvg,
+                'grade'          => $grade,
             ];
 
             $totalWeightedAvg += $weightedAvg;
             $subjectCount++;
         }
 
-        $overallAvg   = $subjectCount > 0 ? round($totalWeightedAvg / $subjectCount, 2) : 0;
+        $overallAvg   = $subjectCount > 0
+            ? round($totalWeightedAvg / $subjectCount, 2)
+            : 0;
         $overallGrade = $scale?->getGrade($overallAvg);
 
         return [
             'student'         => $student,
-            'academic_year'   => $academicYear,
+            'academic_year_id' => $academicYearId,
             'term'            => $term,
             'subject_results' => $subjectResults,
             'overall_avg'     => $overallAvg,
@@ -153,26 +153,34 @@ class PerformanceService
     }
 
     /**
-     * Get class-level performance summary for a subject.
+     * Class-level subject report — now uses academic_year_id.
      */
     public function getClassSubjectReport(
         int    $campusId,
         int    $classId,
         int    $subjectId,
-        string $academicYear,
+        int    $academicYearId,     // ← was: string $academicYear
         int    $term,
         string $examType
-    ): Collection {
-        $weights = $this->getExamWeights($campusId);
-        $scale   = $this->getGradeScale($campusId);
+    ): \Illuminate\Support\Collection {
+        $scale = $this->getGradeScale($campusId);
 
         $marks = StudentMark::where('campus_id', $campusId)
             ->where('subject_id', $subjectId)
-            ->where('academic_year', $academicYear)
+            ->where('academic_year_id', $academicYearId)   // ← FK
             ->where('term', $term)
             ->where('exam_type', $examType)
-            ->with(['student.section'])
-            ->whereHas('student', fn($q) => $q->where('class_id', $classId))
+            ->with(['student.currentEnrollment'])
+            ->whereHas(
+                'student',
+                fn($q) => $q
+                    ->whereHas(
+                        'enrollments',
+                        fn($eq) => $eq
+                            ->where('class_id', $classId)
+                            ->where('academic_year_id', $academicYearId)
+                    )
+            )
             ->get()
             ->map(function ($mark) use ($scale) {
                 $mark->grade = $scale?->getGrade($mark->percentage);

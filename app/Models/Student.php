@@ -35,9 +35,18 @@ class Student extends Model
 
     // ── Relationships ─────────────────────────────────────────────────────────
 
-    public function user()        { return $this->belongsTo(User::class); }
-    public function campus()      { return $this->belongsTo(Campus::class); }
-    public function parentRecord(){ return $this->hasOne(ParentRecord::class); }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+    public function campus()
+    {
+        return $this->belongsTo(Campus::class);
+    }
+    public function parentRecord()
+    {
+        return $this->hasOne(ParentRecord::class);
+    }
 
     // All enrollments across all years
     public function enrollments()
@@ -132,16 +141,15 @@ class Student extends Model
     {
         return $query->whereHas('enrollments', function ($q) use ($academicYearId, $campusId) {
             $q->where('academic_year_id', $academicYearId)
-              ->where('campus_id', $campusId);
+                ->where('campus_id', $campusId);
         });
     }
-
     // Scope to students enrolled in a specific section in a year
     public function scopeInSection($query, int $sectionId, int $academicYearId)
     {
         return $query->whereHas('enrollments', function ($q) use ($sectionId, $academicYearId) {
             $q->where('section_id', $sectionId)
-              ->where('academic_year_id', $academicYearId);
+                ->where('academic_year_id', $academicYearId);
         });
     }
 
@@ -150,7 +158,7 @@ class Student extends Model
     {
         return $query->whereHas('enrollments', function ($q) use ($classId, $academicYearId) {
             $q->where('class_id', $classId)
-              ->where('academic_year_id', $academicYearId);
+                ->where('academic_year_id', $academicYearId);
         });
     }
 }

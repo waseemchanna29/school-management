@@ -9,17 +9,26 @@ use App\Models\AttendanceSession;
 use App\Models\SchoolClass;
 use App\Models\Section;
 use App\Models\Student;
+use App\Models\StudentEnrollment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class AttendanceController extends Controller
 {
+
+    private function yearId(): int
+    {
+        return \App\Helpers\AcademicYearContext::id();
+    }
+
+
     // ── Index — all sessions ──────────────────────────────────────────────────
     public function index(Request $request)
     {
         $campusId = CampusContext::id();
 
         $query = AttendanceSession::where('campus_id', $campusId)
+            ->where('academic_year_id', $this->yearId())    // ← NEW
             ->with(['schoolClass', 'section', 'teacher', 'records']);
 
         if ($request->filled('class_id'))   $query->where('class_id', $request->class_id);
@@ -28,7 +37,7 @@ class AttendanceController extends Controller
         if ($request->filled('date'))       $query->whereDate('date', $request->date);
         if ($request->filled('month')) {
             $query->whereMonth('date', $request->month)
-                  ->whereYear('date', $request->year ?? date('Y'));
+                ->whereYear('date', $request->year ?? date('Y'));
         }
 
         $sessions = $query->latest('date')->paginate(20);
@@ -38,8 +47,10 @@ class AttendanceController extends Controller
             ->where('is_active', true)
             ->with('schoolClass')->get();
 
-        return view('admin.attendance.index',
-            compact('sessions', 'classes', 'sections'));
+        return view(
+            'admin.attendance.index',
+            compact('sessions', 'classes', 'sections')
+        );
     }
 
     // ── Show + Inline Edit ────────────────────────────────────────────────────
@@ -55,13 +66,20 @@ class AttendanceController extends Controller
         ]);
 
         // All students in this section — to catch any not yet recorded
-        $allStudents = Student::where('section_id', $session->section_id)
-            ->where('status', 'active')
+        $allStudents = Student::whereHas(
+            'enrollments',
+            fn($q) => $q
+                ->where('section_id', $session->section_id)
+                ->where('academic_year_id', $this->yearId())
+                ->where('status', 'active')
+        )
             ->orderBy('full_name')
             ->get();
 
-        return view('admin.attendance.show',
-            compact('session', 'allStudents'));
+        return view(
+            'admin.attendance.show',
+            compact('session', 'allStudents')
+        );
     }
 
     // ── Update a single student's record (inline) ─────────────────────────────
@@ -90,8 +108,10 @@ class AttendanceController extends Controller
             $session->update(['status' => 'draft']);
         }
 
-        return back()->with('success',
-            "{$student->full_name}'s attendance updated.");
+        return back()->with(
+            'success',
+            "{$student->full_name}'s attendance updated."
+        );
     }
 
     // ── Bulk update all records in a session ──────────────────────────────────
@@ -132,8 +152,10 @@ class AttendanceController extends Controller
             'status' => 'draft',
         ]);
 
-        return back()->with('success',
-            "Attendance for {$session->date->format('d M, Y')} unlocked.");
+        return back()->with(
+            'success',
+            "Attendance for {$session->date->format('d M, Y')} unlocked."
+        );
     }
 
     // ── Lock (admin force lock) ───────────────────────────────────────────────
@@ -147,8 +169,10 @@ class AttendanceController extends Controller
             'submitted_at' => $session->submitted_at ?? now(),
         ]);
 
-        return back()->with('success',
-            "Attendance for {$session->date->format('d M, Y')} locked.");
+        return back()->with(
+            'success',
+            "Attendance for {$session->date->format('d M, Y')} locked."
+        );
     }
 
     // ── Delete entire session ─────────────────────────────────────────────────
@@ -162,8 +186,10 @@ class AttendanceController extends Controller
         });
 
         return redirect()->route('admin.attendance.index')
-            ->with('success',
-                "Attendance session for {$session->date->format('d M, Y')} deleted.");
+            ->with(
+                'success',
+                "Attendance session for {$session->date->format('d M, Y')} deleted."
+            );
     }
 
     // ── Monthly Report ────────────────────────────────────────────────────────
@@ -181,6 +207,7 @@ class AttendanceController extends Controller
             ->where('is_active', true)->with('schoolClass')->get();
 
         $sessionsQuery = AttendanceSession::where('campus_id', $campusId)
+            ->where('academic_year_id', $this->yearId())    // ← NEW
             ->whereMonth('date', $month)
             ->whereYear('date', $year)
             ->where('status', 'submitted')
@@ -225,25 +252,45 @@ class AttendanceController extends Controller
             ->values();
 
         return view('admin.attendance.report', compact(
-            'sessions', 'studentSummary', 'dailyData',
-            'classes', 'sections', 'month', 'year',
-            'classId', 'sectionId', 'workingDays'
+            'sessions',
+            'studentSummary',
+            'dailyData',
+            'classes',
+            'sections',
+            'month',
+            'year',
+            'classId',
+            'sectionId',
+            'workingDays'
         ));
     }
 
     // ── Student attendance history ─────────────────────────────────────────────
     public function studentAttendance(Request $request, Student $student)
     {
+
         if ($student->campus_id !== CampusContext::id()) abort(403);
+
+        // Gate: student must be enrolled in admin's campus this year
+        $enrollment = StudentEnrollment::where('student_id', $student->id)
+            ->where('campus_id', CampusContext::id())
+            ->where('academic_year_id', $this->yearId())
+            ->first();
+
+        if (!$enrollment) abort(403, 'Student not enrolled in your campus this year.');
+        $sectionId = $enrollment->section_id;
 
         $month    = (int) $request->get('month', date('n'));
         $year     = (int) $request->get('year', date('Y'));
-        $dateFrom = $request->get('date_from',
-            now()->startOfMonth()->toDateString());
+        $dateFrom = $request->get(
+            'date_from',
+            now()->startOfMonth()->toDateString()
+        );
         $dateTo   = $request->get('date_to', today()->toDateString());
 
         // All submitted sessions for student's section
         $sessionsQuery = AttendanceSession::where('section_id', $student->section_id)
+            ->where('academic_year_id', $this->yearId())    // ← NEW
             ->where('campus_id', CampusContext::id())
             ->with(['records' => fn($q) => $q->where('student_id', $student->id)])
             ->orderBy('date');
@@ -254,7 +301,6 @@ class AttendanceController extends Controller
             ->whereYear('date', $year)
             ->get();
 
-        // Date range sessions for the grid
         $rangeSessions = (clone $sessionsQuery)
             ->whereBetween('date', [$dateFrom, $dateTo])
             ->where('status', 'submitted')
@@ -300,12 +346,21 @@ class AttendanceController extends Controller
             $calendarData[$dateStr] = $recordMap[$dateStr] ?? null;
         }
 
-        $student->load(['schoolClass', 'section']);
+        $student->load(['campus']);
 
         return view('admin.attendance.student', compact(
-            'student', 'summary', 'recordMap', 'rangeSessions',
-            'month', 'year', 'dateFrom', 'dateTo',
-            'daysInMonth', 'firstDay', 'calendarData'
+            'student',
+            'enrollment',
+            'summary',
+            'recordMap',
+            'rangeSessions',
+            'month',
+            'year',
+            'dateFrom',
+            'dateTo',
+            'daysInMonth',
+            'firstDay',
+            'calendarData'
         ));
     }
 

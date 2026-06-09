@@ -2,65 +2,66 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\AcademicYearContext;
 use App\Helpers\CampusContext;
 use App\Http\Controllers\Controller;
-use App\Models\SchoolClass;
-use App\Models\Student;
-use App\Models\Subject;
+use App\Models\AttendanceSession;
+use App\Models\FeeInvoice;
+use App\Models\Section;
+use App\Models\StudentEnrollment;
 use App\Models\Teacher;
-use App\Services\FeeService;
-use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function __construct(private FeeService $feeService) {}
-
     public function index()
     {
         $campusId = CampusContext::id();
+        $yearId   = AcademicYearContext::id();
 
-        $stats = [
-            'students'        => Student::where('campus_id', $campusId)->count(),
-            'active_students' => Student::where('campus_id', $campusId)->where('status', 'active')->count(),
-            'teachers'        => Teacher::where('campus_id', $campusId)->count(),
-            'active_teachers' => Teacher::where('campus_id', $campusId)->where('is_active', true)->count(),
-            'classes'         => SchoolClass::where('campus_id', $campusId)->where('is_active', true)->count(),
-            'subjects'        => Subject::where('campus_id', $campusId)->where('is_active', true)->count(),
-        ];
+        // ── Year-aware stats ──────────────────────────────────────────────────
+        $totalStudents = StudentEnrollment::where('campus_id', $campusId)
+            ->where('academic_year_id', $yearId)
+            ->where('status', 'active')
+            ->count();
 
-        $recentStudents = Student::where('campus_id', $campusId)
-            ->with(['schoolClass', 'section'])->latest()->take(6)->get();
+        $totalTeachers = Teacher::where('campus_id', $campusId)
+            ->where('is_active', true)
+            ->count();
 
-        $recentTeachers = Teacher::where('campus_id', $campusId)
-            ->with('user')->latest()->take(5)->get();
+        $totalSections = Section::where('campus_id', $campusId)
+            ->where('is_active', true)
+            ->count();
 
-        return view('admin.dashboard', compact('stats', 'recentStudents', 'recentTeachers'));
-    }
+        // Attendance today
+        $todayAttendance = AttendanceSession::where('campus_id', $campusId)
+            ->where('academic_year_id', $yearId)
+            ->whereDate('date', today())
+            ->where('status', 'submitted')
+            ->count();
 
-    public function generateMonthlyInvoices(Request $request)
-    {
-        $request->validate([
-            'academic_year' => ['required', 'string'],
-            'month'         => ['required', 'integer', 'min:1', 'max:12'],
-            'year'          => ['required', 'integer'],
-            'due_date'      => ['required', 'date'],
-        ]);
+        // Fee stats for current year
+        $unpaidInvoices = FeeInvoice::where('campus_id', $campusId)
+            ->where('academic_year_id', $yearId)
+            ->where('status', 'unpaid')
+            ->count();
 
-        $result = $this->feeService->generateMonthlyInvoicesForCampus(
-            CampusContext::id(),
-            $request->academic_year,
-            (int) $request->month,
-            (int) $request->year,
-            $request->due_date
-        );
+        $totalCollection = FeeInvoice::where('campus_id', $campusId)
+            ->where('academic_year_id', $yearId)
+            ->sum('paid_amount');
 
-        $message = "{$result['generated']} invoice(s) generated, {$result['skipped']} skipped.";
+        // Enrollment breakdown
+        $enrollmentBreakdown = StudentEnrollment::where('campus_id', $campusId)
+            ->where('academic_year_id', $yearId)
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
 
-        if (!empty($result['errors'])) {
-            $message .= ' Errors: ' . implode(' | ', $result['errors']);
-            return redirect()->route('admin.dashboard')->with('error', $message);
-        }
+        $activeYear = AcademicYearContext::current();
 
-        return redirect()->route('admin.dashboard')->with('success', $message);
+        return view('admin.dashboard', compact(
+            'totalStudents', 'totalTeachers', 'totalSections',
+            'todayAttendance', 'unpaidInvoices', 'totalCollection',
+            'enrollmentBreakdown', 'activeYear'
+        ));
     }
 }

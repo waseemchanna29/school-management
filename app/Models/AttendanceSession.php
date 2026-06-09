@@ -7,8 +7,16 @@ use Illuminate\Database\Eloquent\Model;
 class AttendanceSession extends Model
 {
     protected $fillable = [
-        'campus_id', 'class_id', 'section_id', 'teacher_id',
-        'date', 'academic_year', 'status', 'locked', 'remarks', 'submitted_at',
+        'campus_id',
+        'class_id',
+        'section_id',
+        'teacher_id',
+        'date',
+        'academic_year_id',              // ← string removed, id added
+        'status',
+        'locked',
+        'remarks',
+        'submitted_at',
     ];
 
     protected $casts = [
@@ -17,16 +25,47 @@ class AttendanceSession extends Model
         'locked'       => 'boolean',
     ];
 
-    public function campus()   { return $this->belongsTo(Campus::class); }
-    public function schoolClass() { return $this->belongsTo(SchoolClass::class, 'class_id'); }
-    public function section()  { return $this->belongsTo(Section::class); }
-    public function teacher()  { return $this->belongsTo(Teacher::class); }
-    public function records()  { return $this->hasMany(AttendanceRecord::class); }
+    // ── Relationships ─────────────────────────────────────────────────────────
+    public function campus()
+    {
+        return $this->belongsTo(Campus::class);
+    }
+    public function schoolClass()
+    {
+        return $this->belongsTo(SchoolClass::class, 'class_id');
+    }
+    public function section()
+    {
+        return $this->belongsTo(Section::class);
+    }
+    public function teacher()
+    {
+        return $this->belongsTo(Teacher::class);
+    }
+    public function records()
+    {
+        return $this->hasMany(AttendanceRecord::class);
+    }
+    public function academicYear()
+    {
+        return $this->belongsTo(AcademicYear::class);
+    }  // ← NEW
 
-    public function isSubmitted(): bool { return $this->status === 'submitted'; }
-    public function isLocked(): bool    { return $this->locked; }
-    public function isEditable(): bool  { return !$this->locked && !$this->isSubmitted(); }
+    // ── Status Helpers ────────────────────────────────────────────────────────
+    public function isSubmitted(): bool
+    {
+        return $this->status === 'submitted';
+    }
+    public function isLocked(): bool
+    {
+        return $this->locked;
+    }
+    public function isEditable(): bool
+    {
+        return !$this->locked && !$this->isSubmitted();
+    }
 
+    // ── Computed Counts ───────────────────────────────────────────────────────
     public function getPresentCountAttribute(): int
     {
         return $this->records->where('status', 'present')->count();
@@ -49,7 +88,7 @@ class AttendanceSession extends Model
 
     public function getStatusBadgeClassAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'submitted' => 'badge-approved',
             default     => 'badge-pending',
         };
