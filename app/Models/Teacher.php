@@ -65,4 +65,29 @@ class Teacher extends Model
     {
         return $this->hasMany(AttendanceSession::class);
     }
+
+    // Add these relationships inside Teacher model:
+
+    /**
+     * Academic years this teacher is assigned to (via admin assignment).
+     */
+    public function academicYears()
+    {
+        return $this->belongsToMany(
+            AcademicYear::class,
+            'teacher_academic_years',
+            'teacher_id',
+            'academic_year_id'
+        )->orderByDesc('start_date');
+    }
+
+    /**
+     * Check if teacher is assigned to a specific academic year.
+     */
+    public function hasYearAccess(int $academicYearId): bool
+    {
+        return $this->academicYears()
+            ->where('academic_year_id', $academicYearId)
+            ->exists();
+    }
 }

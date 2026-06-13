@@ -26,6 +26,8 @@ class Student extends Model
         'previous_school',
         'photo',
         'status',
+        'gr_number',
+        
     ];
 
     protected $casts = [

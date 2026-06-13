@@ -110,15 +110,22 @@
                 </select>
             </div>
         </div>
-
-        <div class="mb-form">
+  <div class="row">
+        <div class="mb-form col-8">
             <label class="form-label">Address</label>
             <input type="text" name="address"
                    class="form-control"
                    value="{{ old('address') }}"
                    placeholder="Full address">
         </div>
-
+        <div class="mb-form col-4">
+                <label class="form-label">City</label>
+                <input type="text" name="city"
+                       class="form-control"
+                       value="{{ old('city') }}"
+                       placeholder="e.g. LARKANA">
+            </div>
+  </div>
         <div class="row">
             <div class="mb-form col-6">
                 <label class="form-label">Previous School</label>
@@ -197,6 +204,13 @@
                 <input type="text" name="roll_number"
                        class="form-control"
                        value="{{ old('roll_number') }}"
+                       placeholder="e.g. 01">
+            </div>
+             <div class="mb-form col-4">
+                <label class="form-label">GR Number</label>
+                <input type="text" name="gr_number"
+                       class="form-control"
+                       value="{{ old('gr_number') }}"
                        placeholder="e.g. 01">
             </div>
         </div>

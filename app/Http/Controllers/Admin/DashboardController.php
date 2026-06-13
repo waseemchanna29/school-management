@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceSession;
 use App\Models\FeeInvoice;
 use App\Models\Section;
+use App\Models\Student;
 use App\Models\StudentEnrollment;
 use App\Models\Teacher;
 
@@ -58,10 +59,24 @@ class DashboardController extends Controller
 
         $activeYear = AcademicYearContext::current();
 
+        $recentStudents = StudentEnrollment::where('campus_id', $campusId)
+            ->where('academic_year_id', $yearId)
+            ->with(['schoolClass', 'section', 'student'])->latest()->take(6)->get();
+
+
+        $recentTeachers = Teacher::where('campus_id', $campusId)
+            ->with('user')->latest()->take(5)->get();
         return view('admin.dashboard', compact(
-            'totalStudents', 'totalTeachers', 'totalSections',
-            'todayAttendance', 'unpaidInvoices', 'totalCollection',
-            'enrollmentBreakdown', 'activeYear'
+            'totalStudents',
+            'totalTeachers',
+            'totalSections',
+            'todayAttendance',
+            'unpaidInvoices',
+            'totalCollection',
+            'enrollmentBreakdown',
+            'activeYear',
+            'recentStudents',
+            'recentTeachers'
         ));
     }
 }

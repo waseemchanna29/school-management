@@ -12,10 +12,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
+use App\Models\AcademicYear;
+use App\Models\TeacherAcademicYear;
 
 class TeacherController extends Controller
 {
-    private function campusId(): int { return CampusContext::id(); }
+    private function campusId(): int
+    {
+        return CampusContext::id();
+    }
 
     public function index(Request $request)
     {
@@ -85,10 +90,13 @@ class TeacherController extends Controller
                 ? $request->file('photo')->store('teachers', 'public') : null;
 
             $teacher = Teacher::create(array_merge(
-                $request->except(['email','password','password_confirmation','subjects','photo','_token']),
-                ['user_id' => $user->id, 'campus_id' => $this->campusId(),
-                 'employee_code' => 'TCH-' . strtoupper(substr(md5(uniqid()), 0, 6)),
-                 'photo' => $photoPath]
+                $request->except(['email', 'password', 'password_confirmation', 'subjects', 'photo', '_token']),
+                [
+                    'user_id' => $user->id,
+                    'campus_id' => $this->campusId(),
+                    'employee_code' => 'TCH-' . strtoupper(substr(md5(uniqid()), 0, 6)),
+                    'photo' => $photoPath
+                ]
             ));
 
             if ($request->filled('subjects')) {
@@ -101,9 +109,88 @@ class TeacherController extends Controller
 
     public function show(Teacher $teacher)
     {
-        $this->authorize($teacher);
-        $teacher->load(['user', 'subjects.schoolClass']);
-        return view('admin.teachers.show', compact('teacher'));
+        if ($teacher->campus_id !== CampusContext::id()) abort(403);
+
+        $teacher->load([
+            'user',
+            'subjects.schoolClass',
+            'classTeacherOf',
+            'academicYears',        // ← assigned years
+        ]);
+
+        // All available years for this campus (for assignment dropdown)
+        $campusYears = AcademicYear::where('campus_id', CampusContext::id())
+            ->orderByDesc('start_date')
+            ->get();
+
+        // Years already assigned to this teacher
+        $assignedYearIds = $teacher->academicYears->pluck('id')->toArray();
+
+        return view('admin.teachers.show', compact(
+            'teacher',
+            'campusYears',
+            'assignedYearIds'
+        ));
+    }
+
+    public function assignYear(Request $request, Teacher $teacher)
+    {
+        if ($teacher->campus_id !== CampusContext::id()) abort(403);
+
+        $request->validate([
+            'academic_year_id' => ['required', 'exists:academic_years,id'],
+        ]);
+
+        // Verify year belongs to this campus
+        $year = AcademicYear::where('id', $request->academic_year_id)
+            ->where('campus_id', CampusContext::id())
+            ->firstOrFail();
+
+        // Check if already assigned
+        $exists = TeacherAcademicYear::where('teacher_id', $teacher->id)
+            ->where('academic_year_id', $year->id)
+            ->exists();
+
+        if ($exists) {
+            return back()->with(
+                'error',
+                "Year \"{$year->name}\" is already assigned to {$teacher->full_name}."
+            );
+        }
+
+        TeacherAcademicYear::create([
+            'teacher_id'       => $teacher->id,
+            'academic_year_id' => $year->id,
+        ]);
+
+        return back()->with(
+            'success',
+            "Academic year \"{$year->name}\" assigned to {$teacher->full_name}."
+        );
+    }
+
+
+    /**
+     * Remove an academic year from a teacher.
+     */
+    public function removeYear(Request $request, Teacher $teacher)
+    {
+        if ($teacher->campus_id !== CampusContext::id()) abort(403);
+
+        $request->validate([
+            'academic_year_id' => ['required', 'exists:academic_years,id'],
+        ]);
+
+        TeacherAcademicYear::where('teacher_id', $teacher->id)
+            ->where('academic_year_id', $request->academic_year_id)
+            ->delete();
+
+        $yearName = AcademicYear::find($request->academic_year_id)?->name;
+
+        return back()->with(
+            'success',
+            "Academic year \"{$yearName}\" removed from {$teacher->full_name}."
+        );
     }
 
     public function edit(Teacher $teacher)
@@ -140,7 +227,7 @@ class TeacherController extends Controller
                 if ($teacher->photo) Storage::disk('public')->delete($teacher->photo);
                 $teacher->photo = $request->file('photo')->store('teachers', 'public');
             }
-            $teacher->update($request->except(['email','password','password_confirmation','subjects','photo','_token','_method']));
+            $teacher->update($request->except(['email', 'password', 'password_confirmation', 'subjects', 'photo', '_token', '_method']));
             $teacher->subjects()->sync($request->subjects ?? []);
             $teacher->user->update(['name' => $request->full_name]);
         });

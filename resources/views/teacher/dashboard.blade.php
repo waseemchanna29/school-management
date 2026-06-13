@@ -33,7 +33,7 @@
                     {{ $section->schoolClass->name ?? '' }} — Section {{ $section->name }}
                 </div>
                 <div style="color:var(--text-muted); font-size:0.88rem; margin-top:3px;">
-                    {{ $section->students->count() }} active students
+                   {{ $studentCount }} active students
                 </div>
             </div>
 

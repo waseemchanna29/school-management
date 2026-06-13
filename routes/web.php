@@ -204,6 +204,16 @@ Route::middleware(['auth', 'admin', 'campus_selected', 'year_selected'])->prefix
         // Payments
         Route::post('/invoices/{invoice}/payments',  [FeePaymentController::class, 'store'])->name('payments.store');
         Route::delete('/payments/{payment}',         [FeePaymentController::class, 'destroy'])->name('payments.destroy');
+
+        // ─── Teacher year assignment ─────────────────────────────────────────────────
+        Route::post(
+            '/teachers/{teacher}/assign-year',
+            [TeacherController::class, 'assignYear']
+        )->name('teachers.assign-year');
+        Route::delete(
+            '/teachers/{teacher}/remove-year',
+            [TeacherController::class, 'removeYear']
+        )->name('teachers.remove-year');
     });
 
     Route::prefix('timetable')->name('timetable.')->group(function () {

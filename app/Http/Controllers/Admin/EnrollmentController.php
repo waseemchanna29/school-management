@@ -10,8 +10,12 @@ use App\Models\SchoolClass;
 use App\Models\Section;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
 
 class EnrollmentController extends Controller
 {
@@ -54,9 +58,11 @@ class EnrollmentController extends Controller
         }
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->whereHas('student', fn($q) => $q
-                ->where('full_name', 'like', "%{$search}%")
-                ->orWhere('cnic', 'like', "%{$search}%")
+            $query->whereHas(
+                'student',
+                fn($q) => $q
+                    ->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('cnic', 'like', "%{$search}%")
             )->orWhere('roll_number', 'like', "%{$search}%");
         }
 
@@ -79,7 +85,10 @@ class EnrollmentController extends Controller
             ->pluck('total', 'status');
 
         return view('admin.enrollment.index', compact(
-            'enrollments', 'classes', 'sections', 'summary'
+            'enrollments',
+            'classes',
+            'sections',
+            'summary'
         ));
     }
 
@@ -91,8 +100,10 @@ class EnrollmentController extends Controller
 
         // Students NOT yet enrolled this year (across all campuses — for transfers)
         $unenrolledStudents = Student::where('status', 'active')
-            ->whereDoesntHave('enrollments', fn($q) => $q
-                ->where('academic_year_id', $yearId)
+            ->whereDoesntHave(
+                'enrollments',
+                fn($q) => $q
+                    ->where('academic_year_id', $yearId)
             )
             ->orderBy('full_name')
             ->get();
@@ -105,7 +116,9 @@ class EnrollmentController extends Controller
             ->with('schoolClass')->get();
 
         return view('admin.enrollment.create', compact(
-            'unenrolledStudents', 'classes', 'sections'
+            'unenrolledStudents',
+            'classes',
+            'sections'
         ));
     }
 
@@ -130,8 +143,10 @@ class EnrollmentController extends Controller
             ->exists();
 
         if ($exists) {
-            return back()->with('error',
-                'This student is already enrolled in the current academic year.');
+            return back()->with(
+                'error',
+                'This student is already enrolled in the current academic year.'
+            );
         }
 
         StudentEnrollment::create([
@@ -167,6 +182,7 @@ class EnrollmentController extends Controller
 
     public function admissionStore(Request $request)
     {
+
         $request->validate([
             // Student personal info
             'full_name'       => ['required', 'string', 'max:200'],
@@ -184,15 +200,33 @@ class EnrollmentController extends Controller
             'class_id'        => ['required', 'exists:classes,id'],
             'section_id'      => ['required', 'exists:sections,id'],
             'roll_number'     => ['nullable', 'string', 'max:20'],
+            'gr_number'     => ['nullable', 'string', 'max:20'],
             'enrolled_at'     => ['nullable', 'date'],
         ]);
+
 
         DB::transaction(function () use ($request) {
             $campusId = $this->campusId();
             $yearId   = $this->yearId();
 
+            $baseUsername = Str::of($request->full_name)
+                ->lower()
+                ->replaceMatches('/[^a-z0-9\s]/', '')
+                ->replace(' ', '.')
+                ->toString();
+
+            $username = $baseUsername . time();
+
+            $user = User::create([
+                'name'     => $request->full_name,
+                'email'    => $username . '@school.com',
+                'password' => Hash::make('student@1234'),
+                'role'     => 'student',
+            ]);
+
             // 1. Create student master record
             $student = Student::create([
+                'user_id'         => $user->id,
                 'campus_id'       => $campusId,
                 'full_name'       => $request->full_name,
                 'father_name'     => $request->father_name,
@@ -203,9 +237,13 @@ class EnrollmentController extends Controller
                 'blood_group'     => $request->blood_group,
                 'phone'           => $request->phone,
                 'address'         => $request->address,
+                'city'            => $request->city,
+                'district'            => "LARKANA",
+                'province'            => "SINDH",
                 'admission_date'  => $request->admission_date,
                 'previous_school' => $request->previous_school,
                 'status'          => 'active',
+                'gr_number'       => $request->gr_number,  // ← ADD
             ]);
 
             // 2. Create enrollment for current year
@@ -239,8 +277,10 @@ class EnrollmentController extends Controller
 
         $enrollment->load(['student', 'schoolClass', 'section']);
 
-        return view('admin.enrollment.edit',
-            compact('enrollment', 'classes', 'sections'));
+        return view(
+            'admin.enrollment.edit',
+            compact('enrollment', 'classes', 'sections')
+        );
     }
 
     public function update(Request $request, StudentEnrollment $enrollment)
@@ -258,7 +298,7 @@ class EnrollmentController extends Controller
         $enrollment->update([
             'class_id'   => $request->class_id,
             'section_id' => $request->section_id,
-            'roll_number'=> $request->roll_number,
+            'roll_number' => $request->roll_number,
             'status'     => $request->status,
             'notes'      => $request->notes,
         ]);
@@ -273,8 +313,10 @@ class EnrollmentController extends Controller
         $request->validate([
             'enrollment_ids'   => ['required', 'array'],
             'enrollment_ids.*' => ['exists:student_enrollments,id'],
-            'status'           => ['required',
-                'in:active,passed,detained,left,transferred'],
+            'status'           => [
+                'required',
+                'in:active,passed,detained,left,transferred'
+            ],
         ]);
 
         StudentEnrollment::whereIn('id', $request->enrollment_ids)
@@ -282,9 +324,11 @@ class EnrollmentController extends Controller
             ->where('campus_id', $this->campusId())
             ->update(['status' => $request->status]);
 
-        return back()->with('success',
+        return back()->with(
+            'success',
             count($request->enrollment_ids) . ' enrollment(s) updated to '
-            . ucfirst($request->status) . '.');
+                . ucfirst($request->status) . '.'
+        );
     }
 
     // ── Bulk Carry Forward from Previous Year ─────────────────────────────────
@@ -303,19 +347,27 @@ class EnrollmentController extends Controller
 
         if (!$previousYear) {
             return redirect()->route('admin.enrollment.index')
-                ->with('error',
-                    'No previous academic year found to carry forward from.');
+                ->with(
+                    'error',
+                    'No previous academic year found to carry forward from.'
+                );
         }
 
         // Students enrolled in previous year but NOT in current year
-        $previousEnrollments = StudentEnrollment::where('academic_year_id',
-                $previousYear->id)
+        $previousEnrollments = StudentEnrollment::where(
+            'academic_year_id',
+            $previousYear->id
+        )
             ->where('campus_id', $campusId)
             ->whereIn('status', ['active', 'passed'])
-            ->whereDoesntHave('student', fn($q) => $q
-                ->whereHas('enrollments', fn($q2) => $q2
-                    ->where('academic_year_id', $yearId)
-                )
+            ->whereDoesntHave(
+                'student',
+                fn($q) => $q
+                    ->whereHas(
+                        'enrollments',
+                        fn($q2) => $q2
+                            ->where('academic_year_id', $yearId)
+                    )
             )
             ->with(['student', 'schoolClass', 'section'])
             ->orderBy('class_id')
@@ -329,8 +381,11 @@ class EnrollmentController extends Controller
             ->with('schoolClass')->get();
 
         return view('admin.enrollment.carry-forward', compact(
-            'previousEnrollments', 'previousYear',
-            'currentYear', 'classes', 'sections'
+            'previousEnrollments',
+            'previousYear',
+            'currentYear',
+            'classes',
+            'sections'
         ));
     }
 
@@ -341,7 +396,7 @@ class EnrollmentController extends Controller
             'enrollments.*.student_id' => ['required', 'exists:students,id'],
             'enrollments.*.class_id'   => ['required', 'exists:classes,id'],
             'enrollments.*.section_id' => ['required', 'exists:sections,id'],
-            'enrollments.*.roll_number'=> ['nullable', 'string', 'max:20'],
+            'enrollments.*.roll_number' => ['nullable', 'string', 'max:20'],
         ]);
 
         $yearId   = $this->yearId();
@@ -350,7 +405,11 @@ class EnrollmentController extends Controller
         $skipped  = 0;
 
         DB::transaction(function () use (
-            $request, $yearId, $campusId, &$created, &$skipped
+            $request,
+            $yearId,
+            $campusId,
+            &$created,
+            &$skipped
         ) {
             foreach ($request->enrollments as $data) {
                 // Skip if already enrolled
@@ -358,7 +417,10 @@ class EnrollmentController extends Controller
                     ->where('academic_year_id', $yearId)
                     ->exists();
 
-                if ($exists) { $skipped++; continue; }
+                if ($exists) {
+                    $skipped++;
+                    continue;
+                }
 
                 StudentEnrollment::create([
                     'student_id'       => $data['student_id'],
@@ -377,8 +439,10 @@ class EnrollmentController extends Controller
         });
 
         return redirect()->route('admin.enrollment.index')
-            ->with('success',
-                "{$created} student(s) enrolled. {$skipped} already enrolled (skipped).");
+            ->with(
+                'success',
+                "{$created} student(s) enrolled. {$skipped} already enrolled (skipped)."
+            );
     }
 
     // ── Delete enrollment ─────────────────────────────────────────────────────

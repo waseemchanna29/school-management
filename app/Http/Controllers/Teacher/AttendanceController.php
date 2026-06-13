@@ -24,7 +24,7 @@ class AttendanceController extends Controller
     {
         return $this->teacher()
             ?->classTeacherOf()
-            ->with(['schoolClass'])
+            ->with(['schoolClass'])              // ← remove students
             ->first();
     }
 
@@ -41,17 +41,20 @@ class AttendanceController extends Controller
     // ── Students in section via enrollment (not direct query) ─────────────────
     private function sectionStudents(int $sectionId): \Illuminate\Support\Collection
     {
-        return Student::whereHas('enrollments', fn($q) => $q
-            ->where('section_id', $sectionId)
-            ->where('academic_year_id', $this->yearId())
-            ->where('status', 'active')
+        return Student::whereHas(
+            'enrollments',
+            fn($q) => $q
+                ->where('section_id', $sectionId)
+                ->where('academic_year_id', $this->yearId())
+                ->where('status', 'active')
         )
-        ->with(['enrollments' => fn($q) => $q
-            ->where('academic_year_id', $this->yearId())
-        ])
-        ->orderBy('full_name')
-        ->get()
-        ->each(fn($s) => $s->enrollment = $s->enrollments->first());
+            ->with([
+                'enrollments' => fn($q) => $q
+                    ->where('academic_year_id', $this->yearId())
+            ])
+            ->orderBy('full_name')
+            ->get()
+            ->each(fn($s) => $s->enrollment = $s->enrollments->first());
     }
 
     // ── Take Attendance ───────────────────────────────────────────────────────
@@ -62,8 +65,10 @@ class AttendanceController extends Controller
 
         if (!$section) {
             return redirect()->route('teacher.dashboard')
-                ->with('error',
-                    'You are not assigned as class teacher of any section.');
+                ->with(
+                    'error',
+                    'You are not assigned as class teacher of any section.'
+                );
         }
 
         $date = $request->get('date', today()->toDateString());
@@ -71,10 +76,14 @@ class AttendanceController extends Controller
         // Block future dates
         if ($date > today()->toDateString()) {
             return redirect()
-                ->route('teacher.attendance.take',
-                    ['date' => today()->toDateString()])
-                ->with('error',
-                    'Attendance cannot be taken for future dates.');
+                ->route(
+                    'teacher.attendance.take',
+                    ['date' => today()->toDateString()]
+                )
+                ->with(
+                    'error',
+                    'Attendance cannot be taken for future dates.'
+                );
         }
 
         // Check existing session
@@ -92,8 +101,13 @@ class AttendanceController extends Controller
         $isEditable = !$isLocked;
 
         return view('teacher.attendance.take', compact(
-            'teacher', 'section', 'date', 'session',
-            'students', 'isLocked', 'isEditable'
+            'teacher',
+            'section',
+            'date',
+            'session',
+            'students',
+            'isLocked',
+            'isEditable'
         ));
     }
 
@@ -101,25 +115,34 @@ class AttendanceController extends Controller
     public function save(Request $request)
     {
         $request->validate([
-            'date'                => ['required', 'date',
-                'before_or_equal:today'],
+            'date'                => [
+                'required',
+                'date',
+                'before_or_equal:today'
+            ],
             'attendance'          => ['required', 'array'],
-            'attendance.*.status' => ['required',
-                'in:present,absent,late,leave'],
+            'attendance.*.status' => [
+                'required',
+                'in:present,absent,late,leave'
+            ],
         ]);
 
         $teacher = $this->teacher();
         $section = $this->classSection();
 
         if (!$section) {
-            return back()->with('error',
-                'You are not assigned as class teacher.');
+            return back()->with(
+                'error',
+                'You are not assigned as class teacher.'
+            );
         }
 
         // Block future dates server-side
         if ($request->date > today()->toDateString()) {
-            return back()->with('error',
-                'Attendance cannot be saved for future dates.');
+            return back()->with(
+                'error',
+                'Attendance cannot be saved for future dates.'
+            );
         }
 
         // Block edits on locked/submitted sessions
@@ -128,10 +151,14 @@ class AttendanceController extends Controller
             ->whereDate('date', $request->date)
             ->first();
 
-        if ($existing &&
-            ($existing->isSubmitted() || $existing->isLocked())) {
-            return back()->with('error',
-                'This attendance session is locked and cannot be edited.');
+        if (
+            $existing &&
+            ($existing->isSubmitted() || $existing->isLocked())
+        ) {
+            return back()->with(
+                'error',
+                'This attendance session is locked and cannot be edited.'
+            );
         }
 
         DB::transaction(function () use ($request, $teacher, $section, $existing) {
@@ -169,13 +196,17 @@ class AttendanceController extends Controller
         $this->authorizeSession($session);
 
         if ($session->isLocked() || $session->isSubmitted()) {
-            return back()->with('error',
-                'This session is already locked.');
+            return back()->with(
+                'error',
+                'This session is already locked.'
+            );
         }
 
         if ($session->records()->count() === 0) {
-            return back()->with('error',
-                'Cannot submit — no attendance records found.');
+            return back()->with(
+                'error',
+                'Cannot submit — no attendance records found.'
+            );
         }
 
         $session->update([
@@ -186,8 +217,10 @@ class AttendanceController extends Controller
         ]);
 
         return redirect()->route('teacher.attendance.history')
-            ->with('success',
-                'Attendance submitted and locked successfully.');
+            ->with(
+                'success',
+                'Attendance submitted and locked successfully.'
+            );
     }
 
     // ── History ───────────────────────────────────────────────────────────────
@@ -200,10 +233,14 @@ class AttendanceController extends Controller
         $viewMode = $request->get('view', 'day');
         $month    = (int) $request->get('month', date('n'));
         $year     = (int) $request->get('year', date('Y'));
-        $dateFrom = $request->get('date_from',
-            now()->startOfMonth()->toDateString());
-        $dateTo   = $request->get('date_to',
-            today()->toDateString());
+        $dateFrom = $request->get(
+            'date_from',
+            now()->startOfMonth()->toDateString()
+        );
+        $dateTo   = $request->get(
+            'date_to',
+            today()->toDateString()
+        );
 
         // Day-wise sessions — scoped to current academic year
         $sessionsQuery = AttendanceSession::where('teacher_id', $teacher->id)
@@ -214,7 +251,7 @@ class AttendanceController extends Controller
             $sessionsQuery->whereDate('date', $request->date);
         } else {
             $sessionsQuery->whereMonth('date', $month)
-                          ->whereYear('date', $year);
+                ->whereYear('date', $year);
         }
 
         $sessions = $sessionsQuery->latest('date')->paginate(20);
@@ -241,9 +278,8 @@ class AttendanceController extends Controller
                 foreach ($sessionDays as $sess) {
                     $record = $sess->records
                         ->firstWhere('student_id', $student->id);
-                    $studentGrid[$student->id]
-                        [$sess->date->toDateString()] =
-                            $record?->status ?? null;
+                    $studentGrid[$student->id][$sess->date->toDateString()] =
+                        $record?->status ?? null;
                 }
             }
         }
@@ -260,10 +296,20 @@ class AttendanceController extends Controller
         $firstDay    = \Carbon\Carbon::create($year, $month, 1)->dayOfWeek;
 
         return view('teacher.attendance.history', compact(
-            'teacher', 'section', 'sessions',
-            'students', 'sessionDays', 'studentGrid',
-            'viewMode', 'month', 'year', 'dateFrom', 'dateTo',
-            'calendarSessions', 'daysInMonth', 'firstDay'
+            'teacher',
+            'section',
+            'sessions',
+            'students',
+            'sessionDays',
+            'studentGrid',
+            'viewMode',
+            'month',
+            'year',
+            'dateFrom',
+            'dateTo',
+            'calendarSessions',
+            'daysInMonth',
+            'firstDay'
         ));
     }
 
@@ -330,8 +376,12 @@ class AttendanceController extends Controller
         }
 
         return view('teacher.attendance.student-report', compact(
-            'teacher', 'section', 'summary',
-            'workingDays', 'month', 'year'
+            'teacher',
+            'section',
+            'summary',
+            'workingDays',
+            'month',
+            'year'
         ));
     }
 }

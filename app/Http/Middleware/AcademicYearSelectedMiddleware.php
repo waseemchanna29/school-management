@@ -14,7 +14,7 @@ class AcademicYearSelectedMiddleware
     {
         $user = Auth::user();
 
-        // Super admin bypasses year selection entirely
+        // Super admin bypasses year selection
         if ($user->isSuperAdmin()) {
             return $next($request);
         }
@@ -25,22 +25,35 @@ class AcademicYearSelectedMiddleware
                 ->with('info', 'Please select an academic year to continue.');
         }
 
-        // Validate year still belongs to the correct campus
+        // For teachers — verify they are still authorized for selected year
+        if ($user->isTeacher()) {
+            $yearId  = AcademicYearContext::id();
+            $teacher = $user->teacher;
+
+            if (!$teacher) {
+                Auth::logout();
+                return redirect()->route('login')
+                    ->with('error', 'Teacher profile not found.');
+            }
+
+            // Check teacher still has access to selected year
+            if (!$teacher->hasYearAccess($yearId)) {
+                AcademicYearContext::clear();
+                return redirect()->route('academic-year.select')
+                    ->with('error',
+                        'You no longer have access to that academic year. ' .
+                        'Please select another.');
+            }
+        }
+
+        // For admins — verify year belongs to campus
         if ($user->isAdmin()) {
             $campusId = CampusContext::id();
             if ($campusId && !AcademicYearContext::campusHasAccess($campusId)) {
                 AcademicYearContext::clear();
                 return redirect()->route('academic-year.select')
-                    ->with('error', 'Academic year access changed. Please select again.');
-            }
-        }
-
-        if ($user->isTeacher()) {
-            $campusId = $user->teacher?->campus_id;
-            if ($campusId && !AcademicYearContext::campusHasAccess($campusId)) {
-                AcademicYearContext::clear();
-                return redirect()->route('academic-year.select')
-                    ->with('error', 'Academic year access changed. Please select again.');
+                    ->with('error',
+                        'Academic year mismatch. Please select again.');
             }
         }
 

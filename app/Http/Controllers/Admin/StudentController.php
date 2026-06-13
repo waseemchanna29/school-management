@@ -37,10 +37,12 @@ class StudentController extends Controller
         }
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->whereHas('student', fn($q) => $q
-                ->where('full_name', 'like', "%{$search}%")
-                ->orWhere('cnic', 'like', "%{$search}%")
-                ->orWhere('father_name', 'like', "%{$search}%")
+            $query->whereHas(
+                'student',
+                fn($q) => $q
+                    ->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('cnic', 'like', "%{$search}%")
+                    ->orWhere('father_name', 'like', "%{$search}%")
             )->orWhere('roll_number', 'like', "%{$search}%");
         }
 
@@ -52,33 +54,204 @@ class StudentController extends Controller
             ->where('is_active', true)
             ->with('schoolClass')->get();
 
-        return view('admin.students.index',
-            compact('enrollments', 'classes', 'sections'));
+        return view(
+            'admin.students.index',
+            compact('enrollments', 'classes', 'sections')
+        );
     }
 
     // ── Show student profile ──────────────────────────────────────────────────
-    public function show(Student $student)
+    public function show(Request $request, Student $student)
     {
         $this->gate($student);
 
-        $yearId = AcademicYearContext::id();
+        $campusId = CampusContext::id();
 
-        // Current year enrollment
+        // Year selection: profile can show any year independently
+        // Default to session year, but allow override via ?year_id=
+        $yearId = (int) $request->get(
+            'year_id',
+            AcademicYearContext::id()
+        );
+
+        $activeTab = $request->get('tab', 'overview');
+
+        // All years this student has been enrolled (for year switcher)
+        $studentYears = StudentEnrollment::where('student_id', $student->id)
+            ->with('academicYear')
+            ->orderByDesc('academic_year_id')
+            ->get()
+            ->map(fn($e) => $e->academicYear)
+            ->filter()
+            ->unique('id')
+            ->values();
+
+        // Enrollment for selected year
         $enrollment = StudentEnrollment::where('student_id', $student->id)
             ->where('academic_year_id', $yearId)
-            ->with(['schoolClass', 'section', 'academicYear'])
+            ->with(['schoolClass', 'section', 'academicYear', 'campus'])
             ->first();
 
-        // All enrollment history
+        // All enrollments for history tab
         $allEnrollments = StudentEnrollment::where('student_id', $student->id)
             ->with(['schoolClass', 'section', 'academicYear', 'campus'])
             ->orderByDesc('academic_year_id')
             ->get();
 
+        // ── Attendance tab data ───────────────────────────────────────────────────
+        $attendanceData = [];
+        if ($activeTab === 'attendance' || $activeTab === 'overview') {
+            $month = (int) $request->get('att_month', date('n'));
+            $year  = (int) $request->get('att_year',  date('Y'));
+
+            $sectionId = $enrollment?->section_id;
+
+            $monthlySessions = $sectionId
+                ? \App\Models\AttendanceSession::where('section_id', $sectionId)
+                ->where('academic_year_id', $yearId)
+                ->whereMonth('date', $month)
+                ->whereYear('date', $year)
+                ->with(['records' => fn($q) => $q
+                    ->where('student_id', $student->id)])
+                ->orderBy('date')
+                ->get()
+                : collect();
+
+            $attSummary = [
+                'present'      => 0,
+                'absent'       => 0,
+                'late'         => 0,
+                'leave'        => 0,
+                'working_days' => $monthlySessions->count(),
+            ];
+
+            foreach ($monthlySessions as $sess) {
+                $rec = $sess->records->first();
+                if ($rec) $attSummary[$rec->status]++;
+            }
+
+            $attSummary['percentage'] = $attSummary['working_days'] > 0
+                ? round(($attSummary['present']
+                    / $attSummary['working_days']) * 100, 1)
+                : 0;
+
+            // Calendar map
+            $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+            $firstDay    = \Carbon\Carbon::create($year, $month, 1)->dayOfWeek;
+
+            $calendarMap = [];
+            foreach ($monthlySessions as $sess) {
+                $rec = $sess->records->first();
+                $calendarMap[$sess->date->toDateString()] = $rec?->status;
+            }
+
+            // Year-level summary (all months)
+            $yearSummary = $sectionId
+                ? \App\Models\AttendanceSession::where('section_id', $sectionId)
+                ->where('academic_year_id', $yearId)
+                ->where('status', 'submitted')
+                ->with(['records' => fn($q) => $q
+                    ->where('student_id', $student->id)])
+                ->get()
+                ->reduce(function ($carry, $sess) {
+                    $rec = $sess->records->first();
+                    $carry['total']++;
+                    if ($rec) $carry[$rec->status]++;
+                    return $carry;
+                }, [
+                    'total' => 0,
+                    'present' => 0,
+                    'absent' => 0,
+                    'late' => 0,
+                    'leave' => 0
+                ])
+                : [
+                    'total' => 0,
+                    'present' => 0,
+                    'absent' => 0,
+                    'late' => 0,
+                    'leave' => 0
+                ];
+
+            $yearSummary['percentage'] = $yearSummary['total'] > 0
+                ? round(($yearSummary['present']
+                    / $yearSummary['total']) * 100, 1)
+                : 0;
+
+            $attendanceData = compact(
+                'monthlySessions',
+                'attSummary',
+                'yearSummary',
+                'calendarMap',
+                'daysInMonth',
+                'firstDay',
+                'month',
+                'year'
+            );
+        }
+
+        // ── Performance tab data ──────────────────────────────────────────────────
+        $performanceData = [];
+        if ($activeTab === 'performance' || $activeTab === 'overview') {
+            $perfService = app(\App\Services\PerformanceService::class);
+
+            $termReports = [];
+            foreach (\App\Services\PerformanceService::TERMS as $termNum => $termLabel) {
+                $report = $perfService->getStudentReport($student, $yearId, $termNum);
+                if (!empty($report['subject_results'])) {
+                    $termReports[$termNum] = [
+                        'label'   => $termLabel,
+                        'report'  => $report,
+                    ];
+                }
+            }
+
+            $activeTerm = (int) $request->get('term', array_key_first($termReports) ?? 1);
+
+            $performanceData = compact('termReports', 'activeTerm');
+        }
+
+        // ── Fee tab data ───────────────────────────────────────────────────────────
+        $feeData = [];
+        if ($activeTab === 'fees' || $activeTab === 'overview') {
+            $invoices = \App\Models\FeeInvoice::where('student_id', $student->id)
+                ->where('academic_year_id', $yearId)
+                ->with(['items', 'payments'])
+                ->orderBy('billing_month')
+                ->get();
+
+            $feeScheduler = \App\Models\StudentScheduler::where('student_id', $student->id)
+                ->where('academic_year_id', $yearId)
+                ->with('feeScheduler.items')
+                ->first();
+
+            $feeSummary = [
+                'total_billed'  => $invoices->sum('net_amount'),
+                'total_paid'    => $invoices->sum('paid_amount'),
+                'total_balance' => $invoices->sum('balance'),
+                'unpaid_count'  => $invoices->where('status', 'unpaid')->count(),
+                'paid_count'    => $invoices->where('status', 'paid')->count(),
+            ];
+
+            $feeData = compact('invoices', 'feeScheduler', 'feeSummary');
+        }
+
         $student->load(['parentRecord', 'campus']);
 
-        return view('admin.students.show',
-            compact('student', 'enrollment', 'allEnrollments'));
+        $selectedYear = \App\Models\AcademicYear::find($yearId);
+
+        return view('admin.students.show', compact(
+            'student',
+            'enrollment',
+            'allEnrollments',
+            'studentYears',
+            'selectedYear',
+            'yearId',
+            'activeTab',
+            'attendanceData',
+            'performanceData',
+            'feeData'
+        ));
     }
 
     // ── Edit student personal info ────────────────────────────────────────────
@@ -139,9 +312,11 @@ class StudentController extends Controller
         $this->gate($student);
 
         if ($student->enrollments()->count() > 0) {
-            return back()->with('error',
+            return back()->with(
+                'error',
                 'Cannot delete student with enrollment records. ' .
-                'Remove all enrollments first.');
+                    'Remove all enrollments first.'
+            );
         }
 
         if ($student->photo) {

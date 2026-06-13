@@ -14,10 +14,21 @@ class SectionController extends Controller
     public function index()
     {
         $campusId = CampusContext::id();
+        $yearId   = \App\Helpers\AcademicYearContext::id();
+
         $sections = Section::where('campus_id', $campusId)
-            ->with(['schoolClass', 'students', 'classTeacher'])
-            ->withCount('students')
-            ->latest()->get();
+            ->with(['schoolClass', 'classTeacher'])
+            ->get()
+            ->each(function ($section) use ($yearId) {
+                // Attach student count via enrollments
+                $section->student_count = \App\Models\StudentEnrollment::where(
+                    'section_id',
+                    $section->id
+                )
+                    ->where('academic_year_id', $yearId)
+                    ->where('status', 'active')
+                    ->count();
+            });
 
         $classes  = SchoolClass::where('campus_id', $campusId)
             ->where('is_active', true)->orderBy('name')->get();
@@ -25,7 +36,10 @@ class SectionController extends Controller
         $teachers = Teacher::where('campus_id', $campusId)
             ->where('is_active', true)->orderBy('full_name')->get();
 
-        return view('admin.sections.index', compact('sections', 'classes', 'teachers'));
+        return view(
+            'admin.sections.index',
+            compact('sections', 'classes', 'teachers')
+        );
     }
 
     public function store(Request $request)
